@@ -1,0 +1,1601 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-visual"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <title>Blue Chat</title>
+    <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #161a22;
+        --bubble: #2a3b5f;
+        --accent: #4a90e2;
+        --accent-red: #d9534f;
+        --text: #e6eaf0;
+        --muted: #9aa4b2;
+        --mine: #215d9a;
+        --success: #2d9962;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      button,
+      input,
+      textarea,
+      select {
+        font-family: inherit;
+      }
+
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+
+      *,
+      *::before,
+      *::after {
+        touch-action: pan-x pan-y;
+      }
+
+      input,
+      textarea,
+      select {
+        font-size: max(16px, 1em);
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono",
+          "Courier New", Courier, monospace;
+        font-size: 16px;
+        position: fixed;
+        inset: 0;
+      }
+
+      .app {
+        position: fixed;
+        top: 2.5vh;
+        left: 2.5vw;
+        width: 95vw;
+        height: 95vh;
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 10px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border-radius: 12px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+
+      .header {
+        flex: none;
+        height: 54px;
+        padding: 0 12px;
+        border-bottom: 1px solid #222832;
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 10px;
+        align-items: center;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+
+      .header > * {
+        flex-shrink: 0;
+      }
+
+      .brand {
+        font-weight: 800;
+      }
+
+      .pill {
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: #283143;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .status.connected {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .status.disconnected {
+        background: var(--accent-red);
+        color: #fff;
+      }
+
+      .spacer {
+        flex: 1 1 0;
+        min-width: 0;
+      }
+
+      .btn {
+        cursor: pointer;
+        user-select: none;
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid #2b3446;
+        background: #0f1218;
+        color: var(--text);
+        font-size: 16px;
+      }
+
+      .btn:active {
+        transform: translateY(1px);
+      }
+
+      .people {
+        padding: 10px;
+        border-bottom: 1px solid #222832;
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .people input[type="text"] {
+        width: 100%;
+        background: #0f1218;
+        border: 1px solid #283143;
+        color: var(--text);
+        padding: 8px 10px;
+        border-radius: 8px;
+        outline: none;
+        font-size: 16px;
+      }
+
+      .people input[type="color"] {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: 2px solid #00000033;
+        padding: 0;
+        appearance: none;
+        -webkit-appearance: none;
+        outline: none;
+      }
+
+      .people input[type="color"]::-webkit-color-swatch-wrapper {
+        padding: 0;
+        border-radius: 50%;
+      }
+
+      .people input[type="color"]::-webkit-color-swatch {
+        border: none;
+        border-radius: 50%;
+      }
+
+      .list {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding: 8px;
+      }
+
+      .brandmark {
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 12px 8px 14px;
+        border-top: 1px solid #222832;
+      }
+
+      .brandmark img {
+        display: block;
+        width: 56px;
+        height: 56px;
+      }
+
+      .version {
+        font-size: 12px;
+        color: var(--muted);
+        min-height: 1em;
+      }
+
+      .person {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border-radius: 8px;
+        min-width: 0;
+      }
+
+      .person-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #3b475c;
+      }
+
+      .dot.online {
+        background: var(--success);
+      }
+
+      .chip {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 1px solid #00000033;
+      }
+
+      .typing {
+        font-size: 12px;
+        color: var(--muted);
+        margin-left: auto;
+      }
+
+      .main {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        grid-template-columns: minmax(280px, 1fr);
+        min-width: 0;
+      }
+
+      .feed {
+        overflow: auto;
+        overflow-x: hidden;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .row {
+        display: flex;
+        width: 100%;
+      }
+
+      .row.mine {
+        justify-content: flex-end;
+      }
+
+      .msg {
+        max-width: 85%;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: var(--bubble);
+        color: var(--text);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
+      .msg.mine {
+        background: var(--mine);
+      }
+
+      .meta {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 6px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .name {
+        font-weight: 600;
+      }
+
+      .receipt {
+        white-space: nowrap;
+      }
+
+      .receipt.seen {
+        color: #c9d6ee;
+      }
+
+      .receipt.all {
+        color: #8fc4ff;
+      }
+
+      .typingbar {
+        font-size: 12px;
+        color: var(--muted);
+        padding: 0 14px 6px;
+        min-height: 18px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .dots {
+        display: inline-flex;
+        gap: 2px;
+        margin-left: 4px;
+        vertical-align: middle;
+      }
+
+      .dots span {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: currentColor;
+        animation: typing-dot 1.2s infinite ease-in-out;
+      }
+
+      .dots span:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+
+      .dots span:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+
+      @keyframes typing-dot {
+        0%,
+        60%,
+        100% {
+          opacity: 0.3;
+          transform: translateY(0);
+        }
+
+        30% {
+          opacity: 1;
+          transform: translateY(-2px);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .dots span {
+          animation: none;
+          opacity: 0.7;
+        }
+      }
+
+      .input {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        padding: 12px;
+        border-top: 1px solid #222832;
+      }
+
+      .input textarea {
+        resize: none;
+        height: 44px;
+        min-height: 44px;
+        max-height: 132px;
+        line-height: 22px;
+        overflow-y: hidden;
+        flex: 1;
+        border-radius: 10px;
+        border: 1px solid #283143;
+        background: #0f1218;
+        color: #e6eaf0;
+        padding: 10px 12px;
+        outline: none;
+        font-size: 16px;
+      }
+
+      .input button {
+        height: 44px;
+        flex: none;
+        padding: 0 18px;
+        border: none;
+        border-radius: 10px;
+        background: #4a90e2;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      .sys {
+        width: 100%;
+        font-size: 12px;
+        color: var(--muted);
+        padding: 8px 12px;
+        border: 1px dashed #3b475c;
+        border-radius: 8px;
+        margin: 6px 0;
+        display: flex;
+        align-items: baseline;
+        text-align: left;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
+      .sys-text {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      .sys.alert {
+        color: #f0ad4e;
+        border-color: #6b5426;
+      }
+
+      .sys.idle {
+        color: #7f93b5;
+        border-color: #2f3a52;
+      }
+
+      .sys.back {
+        color: #5cb88a;
+        border-color: #2b5a43;
+      }
+
+      .swatch {
+        display: inline-block;
+        width: 0.85em;
+        height: 0.85em;
+        border-radius: 50%;
+        margin-left: 0.45em;
+        vertical-align: -0.1em;
+        border: 1px solid #ffffff33;
+      }
+
+      .sys-time {
+        flex: none;
+        opacity: 0.75;
+        white-space: pre;
+      }
+
+      .app.hide-contacts {
+        grid-template-columns: 1fr;
+      }
+
+      .app.hide-contacts .panel.sidebar {
+        display: none;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          width: 100%;
+          height: 100%;
+          border-radius: 0;
+        }
+      }
+
+      @media (max-width: 600px) {
+        .app:not(.hide-contacts) .input textarea,
+        .app:not(.hide-contacts) .input textarea::placeholder {
+          white-space: pre;
+          overflow-wrap: normal;
+          word-break: normal;
+        }
+
+        .app:not(.hide-contacts) .input textarea {
+          overflow-x: hidden;
+        }
+      }
+
+      @media (max-width: 430px) {
+        .header {
+          gap: 8px;
+          padding: 0 10px;
+        }
+
+        .header .btn {
+          padding: 6px 8px;
+        }
+      }
+
+      @media (max-width: 359px) {
+        .wide-only {
+          display: none;
+        }
+
+        .header {
+          gap: 6px;
+        }
+
+        .header .btn {
+          padding: 6px 6px;
+        }
+
+        .header .pill {
+          padding: 4px 8px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app" id="app">
+      <div class="panel sidebar">
+        <div class="header">
+          <div class="spacer"></div>
+          <button class="btn" id="toggle-contacts" type="button" title="Hide">Hide</button>
+        </div>
+        <div class="people">
+          <input
+            id="name"
+            type="text"
+            placeholder="Your username"
+            maxlength="32"
+            aria-label="Your username"
+          />
+          <input id="color" type="color" aria-label="Your colour" />
+          <button class="btn" id="apply-name" type="button">Apply</button>
+        </div>
+        <div class="list" id="user-list" aria-label="People online"></div>
+        <div class="brandmark">
+          <img id="icon" src="/icon.svg" alt="Blue Chat" width="56" height="56" />
+          <div class="version" id="version"></div>
+          <div class="version" id="security" title="Compare this with the code in the host's Server log"></div>
+        </div>
+      </div>
+      <div class="panel main">
+        <div class="header">
+          <div class="brand">Blue Chat</div>
+          <div class="pill status" id="status" role="status">Checking…</div>
+          <div class="spacer"></div>
+          <button class="btn" id="toggle-contacts-main" type="button" title="Show contacts">
+            <span class="wide-only">Show </span>Contacts
+          </button>
+        </div>
+        <div class="feed" id="feed" role="log" aria-live="polite"></div>
+        <div class="typingbar" id="typingbar"></div>
+        <div class="input">
+          <textarea
+            id="input"
+            rows="1"
+            placeholder="Type a message…"
+            maxlength="1000"
+            aria-label="Message"
+          ></textarea>
+          <button id="send" type="button">Send</button>
+        </div>
+      </div>
+    </div>
+    <script>
+(()=>{var Ur=Object.defineProperty;var Nr=(e,t,n)=>t in e?Ur(e,t,{enumerable:!0,configurable:!0,writable:!0,value:n}):e[t]=n;var O=(e,t,n)=>Nr(e,typeof t!="symbol"?t+"":t,n);var ee=BigInt(4294967295),fn=BigInt(32);function kr(e,t=!1){return t?{h:Number(e&ee),l:Number(e>>fn&ee)}:{h:Number(e>>fn&ee)|0,l:Number(e&ee)|0}}function an(e,t=!1){let n=e.length,o=new Uint32Array(n),r=new Uint32Array(n);for(let s=0;s<n;s++){let{h:i,l:c}=kr(e[s],t);[o[s],r[s]]=[i,c]}return[o,r]}var Fr=e=>e/2**32|0,Hr=e=>e>>>0;function un(e,t,n,o){let r=Fr(n),s=Hr(n);e.setUint32(t,o?s:r,o),e.setUint32(t+4,o?r:s,o)}function jt(e){return e instanceof Uint8Array||ArrayBuffer.isView(e)&&e.constructor.name==="Uint8Array"&&"BYTES_PER_ELEMENT"in e&&e.BYTES_PER_ELEMENT===1}var ne=e=>e?`"${e}" `:"";function Z(e,t=""){if(typeof e!="number")throw new TypeError(ne(t)+"expected number, got "+typeof e);if(!Number.isSafeInteger(e)||e<0)throw new RangeError(ne(t)+"expected integer >= 0, got "+e);return e}function hn(e,t=""){if(typeof e!="boolean")throw new TypeError(ne(t)+"expected boolean, got type="+typeof e);return e}function z(e,t,n=""){if(jt(e)&&(t===void 0||e.length===t))return e;t!==void 0&&Z(t,"length");let o=jt(e),r=t!==void 0?` of length ${t}`:"",s=o?`length=${e.length}`:`type=${typeof e}`,i=ne(n)+"expected Uint8Array"+r+", got "+s;throw o?new RangeError(i):new TypeError(i)}function vt(e){if(typeof e!="function"||typeof e.create!="function")throw new TypeError("expected hash wrapped by utils.createHasher");if(Z(e.outputLen),Z(e.blockLen),e.outputLen<1||e.blockLen<1)throw new Error("hash blockLen / outputLen must be >= 1")}var Cr=(e,t)=>{if(e===null||typeof e!="object"||Array.isArray(e))throw new TypeError((t==="object"?"":`"${t}" `)+"expected object, got type="+typeof e)},dn=(e,t)=>{Cr(e,t);let n=Object.getPrototypeOf(e);if(n!==Object.prototype&&n!==null)throw new TypeError(`"${t}" expected plain object`);if(Object.hasOwn(e,"__proto__"))throw new TypeError(`"${t}.__proto__" is not allowed`)};function dt(e,t=!0){if(e.destroyed)throw new Error("hash was destroyed");if(t&&e.finished)throw new Error("digest() was already called")}function Ut(e,t){z(e,void 0,"output");let n=t.outputLen;if(!(e.length>=n))throw new RangeError('"output" expected length >= '+n)}function Dt(e){return new Uint32Array(e.buffer,e.byteOffset,Math.floor(e.byteLength/4))}function J(...e){for(let t=0;t<e.length;t++)e[t].fill(0)}function re(e){return new DataView(e.buffer,e.byteOffset,e.byteLength)}function rt(e,t){return e<<32-t|e>>>t}var pn=new Uint8Array(new Uint32Array([287454020]).buffer)[0]===68;function jr(e){return e<<24&4278190080|e<<8&16711680|e>>>8&65280|e>>>24&255}function Dr(e){for(let t=0;t<e.length;t++)e[t]=jr(e[t]);return e}var Nt=pn?e=>e:Dr,xn=typeof Uint8Array.from([]).toHex=="function"&&typeof Uint8Array.fromHex=="function",Mr=Array.from({length:256},(e,t)=>t.toString(16).padStart(2,"0"));function Mt(e){if(z(e),xn)return e.toHex();let t="";for(let n=0;n<e.length;n++)t+=Mr[e[n]];return t}function ln(e){return e>=48&&e<=57?e-48:e>=65&&e<=70?e-55:e>=97&&e<=102?e-87:void 0}function ve(e){if(typeof e!="string")throw new TypeError("hex string expected, got "+typeof e);if(xn)try{return Uint8Array.fromHex(e)}catch(r){throw r instanceof SyntaxError?new RangeError(r.message):r}let t=e.length,n=t/2;if(t%2)throw new RangeError("hex string expected, got unpadded hex of length "+t);let o=new Uint8Array(n);for(let r=0,s=0;r<n;r++,s+=2){let i=ln(e.charCodeAt(s)),c=ln(e.charCodeAt(s+1));if(i===void 0||c===void 0){let f=e[s]+e[s+1];throw new RangeError('hex string expected, got non-hex character "'+f+'" at index '+s)}o[r]=i*16+c}return o}function Ue(e,t,n="opts"){return dn(e,"defaults"),t!==void 0&&dn(t,n),Object.assign(Object.create(null),e,t)}function qt(e,t={}){if(typeof e!="function")throw new TypeError('"hashCons" expected function, got type='+typeof e);t=Ue({},t,"info");let n=(r,s)=>e(s).update(r).digest(),o=e(void 0);return n.outputLen=o.outputLen,n.blockLen=o.blockLen,n.canXOF=o.canXOF,n.create=r=>e(r),Object.assign(n,t),Object.freeze(n)}function kt(e=32){Z(e,"bytesLength");let t=typeof globalThis=="object"?globalThis.crypto:null;if(typeof t?.getRandomValues!="function")throw new Error("crypto.getRandomValues must be defined");if(e>65536)throw new RangeError(`"bytesLength" expected <= 65536, got ${e}`);return t.getRandomValues(new Uint8Array(e))}var mt=e=>({oid:Uint8Array.from([6,9,96,134,72,1,101,3,4,2,e])});var qr=BigInt(0),zt=BigInt(1),zr=BigInt(2),$r=BigInt(7),Kr=BigInt(256),Pr=BigInt(113),bn=[],wn=[],mn=[];for(let e=0,t=zt,n=1,o=0;e<24;e++){[n,o]=[o,(2*n+3*o)%5],bn.push(2*(5*o+n)),wn.push((e+1)*(e+2)/2%64);let r=qr;for(let s=0;s<7;s++)t=(t<<zt^(t>>$r)*Pr)%Kr,t&zr&&(r^=zt<<(zt<<BigInt(s))-zt);mn.push(r)}var En=an(mn,!0),Zr=En[0],Yr=En[1],Xr=(e,t,n)=>e<<n|t>>>32-n,Gr=(e,t,n)=>t<<n|e>>>32-n,Vr=(e,t,n)=>t<<n-32|e>>>64-n,Wr=(e,t,n)=>e<<n-32|t>>>64-n,yn=(e,t,n)=>n>32?Vr(e,t,n):Xr(e,t,n),gn=(e,t,n)=>n>32?Wr(e,t,n):Gr(e,t,n),Ft=new Uint32Array(10);function Qr(e,t=24){if(!(e instanceof Uint32Array))throw new TypeError('"s" expected Uint32Array(50), got type='+typeof e);if(e.length!==50)throw new RangeError('"s" expected Uint32Array(50), got length='+e.length);if(Z(t,"rounds"),t<1||t>24)throw new Error('"rounds" expected integer 1..24');for(let n=24-t;n<24;n++){for(let s=0;s<10;s++)Ft[s]=e[s]^e[s+10]^e[s+20]^e[s+30]^e[s+40];for(let s=0;s<10;s+=2){let i=(s+8)%10,c=(s+2)%10,f=Ft[c],a=Ft[c+1],u=yn(f,a,1)^Ft[i],l=gn(f,a,1)^Ft[i+1];for(let p=0;p<50;p+=10)e[s+p]^=u,e[s+p+1]^=l}let o=e[2],r=e[3];for(let s=0;s<24;s++){let i=wn[s],c=yn(o,r,i),f=gn(o,r,i),a=bn[s];o=e[a],r=e[a+1],e[a]=c,e[a+1]=f}for(let s=0;s<50;s+=10){let i=e[s],c=e[s+1],f=e[s+2],a=e[s+3];e[s]^=~e[s+2]&e[s+4],e[s+1]^=~e[s+3]&e[s+5],e[s+2]^=~e[s+4]&e[s+6],e[s+3]^=~e[s+5]&e[s+7],e[s+4]^=~e[s+6]&e[s+8],e[s+5]^=~e[s+7]&e[s+9],e[s+6]^=~e[s+8]&i,e[s+7]^=~e[s+9]&c,e[s+8]^=~i&f,e[s+9]^=~c&a}e[0]^=Zr[n],e[1]^=Yr[n]}J(Ft)}var oe=class e{constructor(t,n,o,r=!1,s=24){O(this,"state");O(this,"pos",0);O(this,"posOut",0);O(this,"finished",!1);O(this,"state32");O(this,"destroyed",!1);O(this,"blockLen");O(this,"suffix");O(this,"outputLen");O(this,"canXOF");O(this,"enableXOF",!1);O(this,"rounds");if(Z(t,"blockLen"),Z(n,"suffix"),Z(s,"rounds"),hn(r,"enableXOF"),this.blockLen=t,this.suffix=n,this.outputLen=o,this.enableXOF=r,this.canXOF=r,this.rounds=s,Z(o,"outputLen"),!(0<t&&t<200))throw new Error('"blockLen" must be 1..199');this.state=new Uint8Array(200),this.state32=Dt(this.state)}clone(){return this._cloneInto()}keccak(){Nt(this.state32),Qr(this.state32,this.rounds),Nt(this.state32),this.posOut=0,this.pos=0}update(t){dt(this),z(t);let{blockLen:n,state:o,state32:r}=this,s=t.length,i=n%4===0&&t.byteOffset%4===0,c=n/4,f=i&&s>=n?Dt(t):void 0;for(let a=0;a<s;){if(f!==void 0&&this.pos===0&&a%4===0&&s-a>=n){for(let l=0,p=a/4;l<c;l++)r[l]^=f[p+l];a+=n,this.pos=n,this.keccak();continue}let u=Math.min(n-this.pos,s-a);for(let l=0;l<u;l++)o[this.pos++]^=t[a++];this.pos===n&&this.keccak()}return this}finish(){if(this.finished)return;this.finished=!0;let{state:t,suffix:n,pos:o,blockLen:r}=this;t[o]^=n,(n&128)!==0&&o===r-1&&this.keccak(),t[r-1]^=128,this.keccak()}writeInto(t){dt(this,!1),z(t),this.finish();let n=this.state,{blockLen:o}=this;for(let r=0,s=t.length;r<s;){this.posOut>=o&&this.keccak();let i=Math.min(o-this.posOut,s-r);t.set(n.subarray(this.posOut,this.posOut+i),r),this.posOut+=i,r+=i}return t}xofInto(t){if(!this.enableXOF)throw new Error("XOF is not enabled");return this.writeInto(t)}xof(t){return Z(t),this.xofInto(new Uint8Array(t))}digestInto(t){if(Ut(t,this),this.finished)throw new Error("digest() was already called");this.writeInto(t.length===this.outputLen?t:t.subarray(0,this.outputLen)),this.destroy()}digest(){let t=new Uint8Array(this.outputLen);return this.digestInto(t),t}destroy(){this.destroyed=!0,J(this.state)}_cloneInto(t){let{blockLen:n,suffix:o,outputLen:r,rounds:s,enableXOF:i}=this;return t||(t=new e(n,o,r,i,s)),t.blockLen=n,t.state32.set(this.state32),t.pos=this.pos,t.posOut=this.posOut,t.finished=this.finished,t.rounds=s,t.suffix=o,t.outputLen=r,t.enableXOF=i,t.canXOF=this.canXOF,t.destroyed=this.destroyed,t}},Bn=(e,t,n,o={})=>qt(()=>new oe(t,e,n),o);var On=Bn(6,136,32,mt(8));var Tn=Bn(6,72,64,mt(10));var An=(e,t,n,o={})=>qt((r={})=>(r=Ue({},r),new oe(t,e,r.dkLen===void 0?n:r.dkLen,!0)),o),Ln=An(31,168,16,mt(11)),se=An(31,136,32,mt(12));function $t(e,t,n=()=>{}){if(!Array.isArray(e))throw new TypeError(`"${t}" expected array, got type=${typeof e}`);for(let o=0;o<e.length;o++)n(e[o],`${t}[${o}]`);return e}var lt=(e,t,n)=>z(e,t,n),Ne=Z;function yt(e,t="object"){if(e===null||typeof e!="object"||Array.isArray(e))throw new TypeError(t==="object"?"expected valid options object":`"${t}" expected object, got type=${typeof e}`);return e}function Et(e,t){if(typeof e!="function")throw new TypeError(`"${t}" is invalid: expected function, got ${typeof e}`);return e}var _n=Mt;var Rn=e=>ve(e),ce=jt,fe=e=>kt(e),ie=BigInt(0),Sn=BigInt(1),to=e=>e?`"${e}" `:"";function Bt(e,t=""){if(typeof e!="boolean")throw new TypeError(to(t)+"expected boolean, got type="+typeof e);return e}function eo(e){if(typeof e=="bigint"){if(!gt(e))throw new RangeError("positive bigint expected, got "+e)}else Ne(e);return e}function Kt(e,t=""){if(typeof e!="number"){let n=t&&`"${t}" `;throw new TypeError(n+"expected number, got type="+typeof e)}if(!Number.isSafeInteger(e)){let n=t&&`"${t}" `;throw new RangeError(n+"expected safe integer, got "+e)}}function In(e){if(typeof e!="string")throw new TypeError("hex string expected, got "+typeof e);return e===""?ie:BigInt("0x"+e)}function ae(e){return In(Mt(e))}function Ot(e){return In(Mt(Tt(z(e)).reverse()))}function ke(e,t){if(Z(t),t===0)throw new Error("zero output length is invalid");e=eo(e);let n=t*2,o=e.toString(16);if(o.length>n)throw new RangeError("number is too large");return ve(o.padStart(n,"0"))}function ue(e,t){return ke(e,t).reverse()}function Tt(e){return Uint8Array.from(lt(e))}function gt(e){return typeof e=="bigint"&&ie<=e}function Fe(e,t,n){return gt(e)&&gt(t)&&gt(n)&&t<=e&&e<n}function At(e,t,n,o){if(!Fe(t,n,o))throw new RangeError("expected valid "+e+": "+n+" <= n < "+o+", got "+t)}function He(e){if(e<ie)throw new Error("expected non-negative bigint, got "+e);return e===ie?0:e.toString(2).length}var vn=e=>(Kt(e,"n"),(Sn<<BigInt(e))-Sn);function ht(e,t={},n={},o="object"){yt(e,o),yt(t,"fields"),yt(n,"optFields");function r(i,c,f){let a=o==="object"?`param "${String(i)}"`:`"${o}.${String(i)}"`,u=e[i];if(!Object.hasOwn(e,i)&&(f?u!==void 0:c!=="function"))throw new TypeError(`${a} is invalid: expected own property`);if(f&&u===void 0)return;let l=typeof u;if(l!==c||u===null)throw new TypeError(`${a} is invalid: expected ${c}, got ${l}`)}let s=(i,c)=>Object.entries(i).forEach(([f,a])=>r(f,a,c));s(t,!1),s(n,!0)}var Y=BigInt(0),$=BigInt(1),Lt=BigInt(2),kn=BigInt(3),Ce=BigInt(4),Fn=BigInt(5),no=BigInt(7),Hn=BigInt(8),ro=BigInt(9),oo=BigInt(15),Cn=BigInt(16),so=BigInt("0x10000000000000000");function q(e,t){if(t<=Y)throw new Error("mod: expected positive modulus, got "+t);let n=e%t;return n>=Y?n:t+n}function io(e,t,n){if(n<=$)throw new Error("pow: expected modulus > 1, got "+n);if(typeof t!="bigint")throw new TypeError("invalid exponent: expected bigint, got "+typeof t);if(t<Y)throw new Error("invalid exponent, negatives unsupported");if(t===Y)return $;if(t===$)return e;let o=e%n;if(o<Y&&(o+=n),t<so){let c=$;for(;t>Y;)t&$&&(c=c*o%n),o=o*o%n,t>>=$;return c}let r=[];for(;t>Y;)r.push(Number(t&oo)),t>>=Ce;let s=new Array(16);s[0]=$,s[1]=o;for(let c=2;c<16;c++)s[c]=s[c-1]*o%n;let i=s[r[r.length-1]];for(let c=r.length-2;c>=0;c--){i=i*i%n,i=i*i%n,i=i*i%n,i=i*i%n;let f=r[c];f!==0&&(i=i*s[f]%n)}return i}function tt(e,t,n){if(n<=$)throw new Error("pow2: expected modulus > 1, got "+n);if(t<Y)throw new Error("pow2: expected non-negative exponent, got "+t);let o=e;for(;t-- >Y;)o*=o,o%=n;return o}function Un(e,t){if(e===Y)throw new Error("invert: expected non-zero number");if(t<=$)throw new Error("invert: expected modulus > 1, got "+t);let n=q(e,t),o=t,r=Y,s=$;for(;n!==Y;){let c=o/n,f=o-n*c,a=r-s*c;o=n,n=f,r=s,s=a}if(o!==$)throw new Error("invert: does not exist");return q(r,t)}function je(e,t,n){let o=e;if(!o.eql(o.sqr(t),n))throw new Error("Cannot find square root")}function De(e,t){if((e&$)===Y)throw new Error(t+": expected odd modulus, got "+e)}function jn(e,t){let n=e,o=(n.ORDER+$)/Ce,r=n.pow(t,o);return je(n,r,t),r}function co(e,t){let n=e,o=(n.ORDER-Fn)/Hn,r=n.mul(t,Lt),s=n.pow(r,o),i=n.mul(t,s),c=n.mul(n.mul(i,Lt),s),f=n.mul(i,n.sub(c,n.ONE));return je(n,f,t),f}function fo(e){let t=he(e),n=Dn(e),o=n(t,t.neg(t.ONE)),r=n(t,o),s=n(t,t.neg(o)),i=(e+no)/Cn;return((c,f)=>{let a=c,u=a.pow(f,i),l=a.mul(u,o),p=a.mul(u,r),g=a.mul(u,s),b=a.eql(a.sqr(l),f),E=a.eql(a.sqr(p),f);u=a.cmov(u,l,b),l=a.cmov(g,p,E);let w=a.eql(a.sqr(l),f),_=a.cmov(u,l,w);return je(a,_,f),_})}function Dn(e){if(e<kn)throw new Error("sqrt is not defined for small field");De(e,"tonelliShanks");let t=e-$,n=0;for(;t%Lt===Y;)t/=Lt,n++;let o=Lt,r=he(e);for(;Pt(r,o)===1;)if(o++>1e3)throw new Error("Cannot find square root: probably non-prime P");if(n===1)return jn;let s=r.pow(o,t),i=(t+$)/Lt;return function(f,a){let u=f;if(u.is0(a))return a;if(Pt(u,a)!==1)throw new Error("Cannot find square root");let l=n,p=u.mul(u.ONE,s),g=u.pow(a,t),b=u.pow(a,i);for(;!u.eql(g,u.ONE);){if(u.is0(g))throw new Error("Cannot find square root: probably non-prime P");let E=1,w=u.sqr(g);for(;!u.eql(w,u.ONE);)if(E++,w=u.sqr(w),E===l)throw new Error("Cannot find square root");let _=$<<BigInt(l-E-1),m=u.pow(p,_);l=E,p=u.sqr(m),g=u.mul(g,p),b=u.mul(b,m)}return b}}function ao(e){return De(e,"Fp.sqrt"),e%Ce===kn?jn:e%Hn===Fn?co:e%Cn===ro?fo(e):Dn(e)}var Mn=(e,t)=>(q(e,t)&$)===$,uo=["create","isValid","is0","neg","inv","sqrt","sqr","eql","add","sub","mul","pow","div","addN","subN","mulN","sqrN"];function Ht(e){if(yt(e,"field"),typeof e.ORDER!="bigint")throw new TypeError('param "ORDER" is invalid: expected bigint, got '+typeof e.ORDER);Kt(e.BYTES,"BYTES"),Kt(e.BITS,"BITS");for(let t of uo)Et(e[t],"field."+t);if(e.BYTES<1||e.BITS<1)throw new Error("invalid field: expected BYTES/BITS > 0");if(e.ORDER<=$)throw new Error("invalid field: expected ORDER > 1, got "+e.ORDER);return e}function le(e,t,n=!1){Ht(e),$t(t,"nums"),Bt(n,"passZero");let o=e,r=new Array(t.length).fill(n?o.ZERO:void 0),s=t.reduce((c,f,a)=>o.is0(f)?c:(r[a]=c,o.mul(c,f)),o.ONE),i=o.inv(s);return t.reduceRight((c,f,a)=>o.is0(f)?c:(r[a]=o.mul(c,r[a]),o.mul(c,f)),i),r}function Pt(e,t){Ht(e);let n=e;De(n.ORDER,"FpLegendre");let o=(n.ORDER-$)/Lt,r=n.pow(t,o),s=n.eql(r,n.ONE),i=n.eql(r,n.ZERO),c=n.eql(r,n.neg(n.ONE));if(!s&&!i&&!c)throw new Error("invalid Legendre symbol result");return s?1:i?0:-1}function lo(e,t){if(t!==void 0&&Ne(t),e<=Y)throw new Error("invalid n length: expected positive n, got "+e);if(t!==void 0&&t<1)throw new Error("invalid n length: expected positive bit length, got "+t);let n=He(e);if(t!==void 0&&t<n)throw new Error(`invalid n length: expected nBitLength (${t}) >= bitLen(n) (${n})`);let o=t!==void 0?t:n,r=Math.ceil(o/8);return{nBitLength:o,nByteLength:r}}var Nn=new WeakMap,de=class{constructor(t,n={}){O(this,"ORDER");O(this,"BITS");O(this,"BYTES");O(this,"isLE");O(this,"ZERO",Y);O(this,"ONE",$);O(this,"_lengths");O(this,"_mod");if(t<=$)throw new Error("invalid field: expected ORDER > 1, got "+t);let o;this.isLE=!1,n!=null&&typeof n=="object"&&(typeof n.BITS=="number"&&(o=n.BITS),typeof n.sqrt=="function"&&Object.defineProperty(this,"sqrt",{value:n.sqrt,enumerable:!0}),typeof n.isLE=="boolean"&&(this.isLE=n.isLE),n.allowedLengths&&(this._lengths=Object.freeze(n.allowedLengths.slice())),typeof n.modFromBytes=="boolean"&&(this._mod=n.modFromBytes));let{nBitLength:r,nByteLength:s}=lo(t,o);if(s>2048)throw new Error("invalid field: expected ORDER of <= 2048 bytes");this.ORDER=t,this.BITS=r,this.BYTES=s,Object.freeze(this)}create(t){return q(t,this.ORDER)}isValid(t){if(typeof t!="bigint")throw new TypeError("invalid field element: expected bigint, got "+typeof t);return Y<=t&&t<this.ORDER}is0(t){return t===Y}isValidNot0(t){return!this.is0(t)&&this.isValid(t)}isOdd(t){return(t&$)===$}neg(t){return q(-t,this.ORDER)}eql(t,n){return t===n}sqr(t){return q(t*t,this.ORDER)}add(t,n){return q(t+n,this.ORDER)}sub(t,n){return q(t-n,this.ORDER)}mul(t,n){return q(t*n,this.ORDER)}pow(t,n){return io(t,n,this.ORDER)}div(t,n){return q(t*Un(n,this.ORDER),this.ORDER)}sqrN(t){return t*t}addN(t,n){return t+n}subN(t,n){return t-n}mulN(t,n){return t*n}inv(t){return Un(t,this.ORDER)}sqrt(t){let n=Nn.get(this);return n||Nn.set(this,n=ao(this.ORDER)),n(this,t)}toBytes(t){return this.isLE?ue(t,this.BYTES):ke(t,this.BYTES)}fromBytes(t,n=!1){lt(t);let{_lengths:o,BYTES:r,isLE:s,ORDER:i,_mod:c}=this;if(o){if(t.length<1||!o.includes(t.length)||t.length>r)throw new Error("Field.fromBytes: expected "+o+" bytes, got "+t.length);let a=new Uint8Array(r);a.set(t,s?0:a.length-t.length),t=a}if(t.length!==r)throw new Error("Field.fromBytes: expected "+r+" bytes, got "+t.length);let f=s?Ot(t):ae(t);if(c&&(f=q(f,i)),!n&&!this.isValid(f))throw new Error("invalid field element: outside of range 0..ORDER");return f}invertBatch(t){return le(this,t,!0)}cmov(t,n,o){return Bt(o,"condition"),o?n:t}};function he(e,t={}){return Object.freeze(de.prototype),new de(e,t)}function Zt(e,t="n"){if(typeof e!="number")throw new TypeError(`wrong u32 integer "${t}": expected number, got type=${typeof e}`);if(!Number.isSafeInteger(e)||e<0||e>4294967295)throw new RangeError(`wrong u32 integer "${t}": expected 0..4294967295, got ${e}`);return e}function zn(e){return Zt(e,"x"),(e&e-1)===0&&e!==0}function Me(e,t){if(Zt(e),typeof t!="number")throw new TypeError('"bits" expected number, got type='+typeof t);if(!Number.isSafeInteger(t)||t<0||t>32)throw new Error(`expected integer 0 <= bits <= 32, got ${t}`);let n=0;for(let o=0;o<t;o++,e>>>=1)n=n<<1|e&1;return n>>>0}function $n(e){return Zt(e),31-Math.clz32(e)}function qn(e){if(!e||typeof e!="object"||typeof e.length!="number")throw new TypeError('"values" expected array-like, got type='+typeof e);let t=e.length;if(!zn(t))throw new Error("expected positive power-of-two length, got "+t);let n=$n(t);for(let o=0;o<t;o++){let r=Me(o,n);if(o<r){let s=e[o];e[o]=e[r],e[r]=s}}return e}var qe=(e,t)=>{ht(t,{N:"number",roots:"object",dit:"boolean"},{invertButterflies:"boolean",skipStages:"number",brp:"boolean"},"coreOpts");let{N:n,roots:o,dit:r,invertButterflies:s=!1,skipStages:i=0,brp:c=!0}=t;Zt(n,"coreOpts.N");let f=$n(n);if(!zn(n))throw new Error("FFT: Polynomial size should be power of two");Zt(i,"coreOpts.skipStages");let a=f===0?0:f-1;if(i>a)throw new Error(`FFT: wrong skipStages: expected 0 <= skipStages <= ${a}`);if(o.length!==n)throw new Error(`FFT: wrong roots length: expected ${n}, got ${o.length}`);let u=r!==s;return l=>{if(l.length!==n)throw new Error("FFT: wrong Polynomial length");r&&c&&qn(l);for(let p=0,g=1;p<f-i;p++){let b=r?p+1+i:f-p,E=1<<b,w=E>>1,_=n>>b;for(let m=0;m<n;m+=E)for(let h=0,d=g++;h<w;h++){let x=s?r?n-d:d:h*_,y=m+h,T=m+h+w,L=o[x],A=l[T],S=l[y];if(u){let B=e.mul(A,L);l[y]=e.add(S,B),l[T]=e.sub(S,B)}else s?(l[y]=e.add(A,S),l[T]=e.mul(e.sub(A,S),L)):(l[y]=e.add(S,A),l[T]=e.mul(e.sub(S,A),L))}}return!r&&c&&qn(l),l}};var ot=z;var pe=kt;function ho(e,t,n=()=>{}){if(!Array.isArray(e))throw new TypeError(`"${t}" expected array, got type=${typeof e}`);for(let o=0;o<e.length;o++)n(e[o],`${t}[${o}]`);return e}function St(e,t){if(e=z(e),t=z(t),e.length!==t.length)return!1;let n=0;for(let o=0;o<e.length;o++)n|=e[o]^t[o];return n===0}function ze(e){return new Uint8Array(z(e))}function Yt(e,...t){let n=r=>typeof r=="number"?r:r.bytesLen,o=t.reduce((r,s)=>r+n(s),0);return{bytesLen:o,encode:r=>{let s=new Uint8Array(o);for(let i=0,c=0;i<t.length;i++){let f=t[i],a=n(f),u=typeof f=="number"?r[i]:f.encode(r[i]);z(u,a,e),s.set(u,c),typeof f!="number"&&u.fill(0),c+=a}return s},decode:r=>{z(r,o,e);let s=[];for(let i of t){let c=n(i),f=r.subarray(0,c);s.push(typeof i=="number"?f:i.decode(f)),r=r.subarray(c)}return s}}}function xe(e,t){let n=e,o=t*n.bytesLen;return{bytesLen:o,encode:r=>{let s=ho(r,"u");if(s.length!==t)throw new RangeError(`vecCoder.encode: wrong length=${s.length}. Expected: ${t}`);let i=new Uint8Array(o);for(let c=0,f=0;c<s.length;c++){let a=n.encode(s[c]);i.set(a,f),a.fill(0),f+=a.length}return i},decode:r=>{z(r,o);let s=[];for(let i=0;i<r.length;i+=n.bytesLen)s.push(n.decode(r.subarray(i,i+n.bytesLen)));return s}}}function X(...e){for(let t of e)if(Array.isArray(t))for(let n of t)n.fill(0);else t.fill(0)}function ye(e){if(Z(e,"bits"),e>32)throw new RangeError('"bits" expected <= 32, got '+e);return e===32?4294967295:~(-1<<e)>>>0}var Kn=e=>{let{newPoly:t,N:n,Q:o,F:r,ROOT_OF_UNITY:s,brvBits:i,isKyber:c}=e,f=(h,d=o)=>{let x=h%d|0;return(x>=0?x|0:d+x|0)|0},a=(h,d=o)=>{let x=f(h,d)|0;return(x>d>>1?x-d|0:x)|0};function u(){let h=t(n);for(let d=0;d<n;d++){let x=Me(d,i),y=BigInt(s)**BigInt(x)%BigInt(o);h[d]=Number(y)|0}return h}let l=u(),p=h=>{throw new Error("not implemented")},g=c?{add:(h,d)=>{let x=h+d|0;return x>=o?x-o|0:x},sub:(h,d)=>{let x=h-d|0;return x<0?x+o|0:x},mul:(h,d)=>f((h|0)*(d|0))|0,inv:p}:{add:(h,d)=>f((h|0)+(d|0))|0,sub:(h,d)=>f((h|0)-(d|0))|0,mul:(h,d)=>f((h|0)*(d|0))|0,inv:p},b={N:n,roots:l,invertButterflies:!0,skipStages:c?1:0,brp:!1},E=qe(g,{dit:!1,...b}),w=qe(g,{dit:!0,...b}),_={encode:h=>E(h),decode:h=>{w(h);for(let d=0;d<h.length;d++)h[d]=f(r*h[d]);return h}};return{mod:f,smod:a,nttZetas:l,NTT:{encode:h=>_.encode(h),decode:h=>_.decode(h)},bitsCoder:(h,d)=>{for(let T=0,L=0;T<n;T++)L+=h,L>32&&ye(L),L%=8;let x=ye(h),y=h*(n/8);return{bytesLen:y,encode:T=>{let L=T,A=new Uint8Array(y);for(let S=0,B=0,I=0,U=0;S<L.length;S++)for(B|=(d.encode(L[S])&x)<<I,I+=h;I>=8;I-=8,B>>=8)A[U++]=B&255;return A},decode:T=>{let L=t(n);for(let A=0,S=0,B=0,I=0;A<T.length;A++)for(S|=T[A]<<B,B+=8;B>=h;B-=h,S>>=h)L[I++]=d.decode(S&x);return L}}}}},po=e=>(t,n)=>{n||(n=e.blockLen);let o=new Uint8Array(t.length+2);o.set(t);let r=t.length,s=new Uint8Array(n),i=e.create({}),c=0,f=0;return{stats:()=>({calls:c,xofs:f}),get:(a,u)=>(o[r+0]=a,o[r+1]=u,i.destroy(),i=e.create({}).update(o),c++,()=>(f++,i.xofInto(s))),clean:()=>{i.destroy(),X(s,o)}}},Pn=po(Ln);var W=256,V=3329,xo=3303,yo=17,Q=Kn({N:W,Q:V,F:xo,ROOT_OF_UNITY:yo,newPoly:e=>new Uint16Array(e),brvBits:7,isKyber:!0}),go=Object.freeze({512:Object.freeze({N:W,Q:V,K:2,ETA1:3,ETA2:2,du:10,dv:4,RBGstrength:128}),768:Object.freeze({N:W,Q:V,K:3,ETA1:2,ETA2:2,du:10,dv:4,RBGstrength:192}),1024:Object.freeze({N:W,Q:V,K:4,ETA1:2,ETA2:2,du:11,dv:5,RBGstrength:256})}),bo=e=>{if(e>=12)return{encode:n=>n,decode:n=>n>=V?n-V:n};let t=2**(e-1);return{encode:n=>((n<<e)+V/2)/V,decode:n=>n*V+t>>>e}},wo=e=>Q.bitsCoder(e,e===12?{encode:t=>t,decode:t=>t>=V?t-V:t}:{encode:t=>t,decode:t=>t}),Xt=e=>e===12?wo(12):Q.bitsCoder(e,bo(e));function _t(e,t){let n=e,o=t;for(let r=0;r<W;r++){let s=n[r]+o[r];n[r]=s>=V?s-V:s}}function mo(e,t){let n=e,o=t;for(let r=0;r<W;r++){let s=n[r]-o[r];n[r]=s<0?s+V:s}}function Eo(e,t,n,o,r){let s=Q.mod(Q.mod(t*o)*r+e*n),i=Q.mod(e*o+t*n);return{c0:s,c1:i}}function ge(e,t){let n=e,o=t;for(let r=0;r<W/2;r++){let s=Q.nttZetas[64+(r>>1)];r&1&&(s=-s);let{c0:i,c1:c}=Eo(n[2*r+0],n[2*r+1],o[2*r+0],o[2*r+1],s);n[2*r+0]=i,n[2*r+1]=c}return n}function $e(e){let t=e,n=new Uint16Array(W);for(let o=0;o<W;){let r=t();if(r.length%3)throw new Error("SampleNTT: unaligned block");for(let s=0;o<W&&s+3<=r.length;s+=3){let i=(r[s+0]>>0|r[s+1]<<8)&4095,c=(r[s+1]>>4|r[s+2]<<4)&4095;i<V&&(n[o++]=i),o<W&&c<V&&(n[o++]=c)}}return n}var Bo=(e,t)=>{let n=new Uint16Array(W),o=Dt(e);Nt(o);let r=0;for(let s=0,i=0,c=0,f=0;s<o.length;s++){let a=o[s];for(let u=0;u<32;u++)c+=a&1,a>>=1,r+=1,r===t?(f=c,c=0):r===2*t&&(n[i++]=Q.mod(f-c),c=0,r=0)}if(Nt(o),r)throw new Error(`sampleCBD: leftover bits: ${r}`);return n};function Gt(e,t,n,o){return Bo(e(o*W/4,t,n),o)}var Oo=e=>{let t=e,{K:n,PRF:o,XOF:r,HASH512:s,ETA1:i,ETA2:c,du:f,dv:a}=t,u=Xt(1),l=Xt(a),p=Xt(f),g=Yt("publicKey",xe(Xt(12),n),32),b=xe(Xt(12),n),E=Yt("ciphertext",xe(p,n),l),w=Yt("seed",32,32),_=(m,h,d,x)=>{let y=[];for(let B=0;B<n;B++)y.push(Q.NTT.encode(Gt(o,x,B,i)));let T=new Uint16Array(W),L=[];for(let B=0;B<n;B++){let I=Gt(o,x,n+B,c),U=new Uint16Array(W);for(let k=0;k<n;k++){let H=h(B,k);_t(U,ge(H,y[k]))}_t(I,Q.NTT.decode(U)),L.push(I),_t(T,ge(m[B],y[B])),X(U)}let A=Gt(o,x,2*n,c);_t(A,Q.NTT.decode(T));let S=u.decode(d);return _t(S,A),X(m,y,T,A),E.encode([L,S])};return{secretCoder:b,lengths:{secretKey:b.bytesLen,publicKey:g.bytesLen,cipherText:E.bytesLen},keygen:m=>{ot(m,32,"seed");let h=new Uint8Array(33);h.set(m),h[32]=n;let d=s(h),[x,y]=w.decode(d),T=[],L=[];for(let B=0;B<n;B++)T.push(Q.NTT.encode(Gt(o,y,B,i)));let A=r(x);for(let B=0;B<n;B++){let I=Q.NTT.encode(Gt(o,y,n+B,i));for(let U=0;U<n;U++){let k=$e(A.get(U,B));_t(I,ge(k,T[U]))}L.push(I)}A.clean();let S={publicKey:g.encode([L,x]),secretKey:b.encode(T)};return X(x,y,T,L,h,d),S},encrypt:(m,h,d)=>{let[x,y]=g.decode(m),T=r(y),L=_(x,(A,S)=>$e(T.get(A,S)),h,d);return T.clean(),L},prepare:m=>{let[h,d]=g.decode(m),x=r(d),y=[];for(let T=0;T<n;T++)for(let L=0;L<n;L++)y.push($e(x.get(T,L)));return x.clean(),{encrypt:(T,L)=>_(h.map(A=>A.slice()),(A,S)=>y[A*n+S].slice(),T,L),clean:()=>X(h,y)}},decrypt:(m,h)=>{let[d,x]=E.decode(m),y=b.decode(h),T=new Uint16Array(W);for(let A=0;A<n;A++)_t(T,ge(y[A],Q.NTT.encode(d[A])));mo(x,Q.NTT.decode(T));let L=u.encode(x);return X(T,y,d,x),L}}};function To(e){let t=e,n=Oo(t),{HASH256:o,HASH512:r,KDF:s}=t,{secretCoder:i,lengths:c}=n,f=Yt("secretKey",c.secretKey,c.publicKey,32,32),a=32,u=64,l=(g,b)=>{let E=g.subarray(0,384*t.K),w=i.encode(i.decode(ze(E))),_=St(w,E);if(X(w),!_)throw new Error(`ML-KEM.${b}: wrong publicKey modulus`)},p=Object.freeze({...c,seed:64,msg:a,msgRand:a,secretKey:f.bytesLen});return Object.freeze({info:Object.freeze({type:"ml-kem"}),lengths:p,keygen:g=>{let b=g===void 0,E=b?pe(u):g,w,_;try{ot(E,u,"seed");let m=n.keygen(E.subarray(0,32)),h=m.publicKey;w=m.secretKey,_=o(h);let d=f.encode([w,h,_,E.subarray(32)]);return{publicKey:h,secretKey:d}}finally{w!==void 0&&X(w),_!==void 0&&X(_),b&&X(E)}},getPublicKey:g=>{let[b,E,w,_]=f.decode(g);return Uint8Array.from(E)},encapsulate:(g,b)=>{let E=b===void 0,w=E?pe(a):b,_;try{return ot(g,c.publicKey,"publicKey"),ot(w,a,"message"),l(g,"encapsulate"),_=r.create().update(w).update(o(g)).digest(),{cipherText:n.encrypt(g,w,_.subarray(32,64)),sharedSecret:_.subarray(0,32)}}finally{_!==void 0&&X(_.subarray(32)),E&&X(w)}},decapsulate:(g,b)=>{ot(b,f.bytesLen,"secretKey"),ot(g,c.cipherText,"cipherText");let E=f.bytesLen-96,w=E+32,_=o(b.subarray(E/2,w));if(!St(_,b.subarray(w,w+32)))throw new Error("invalid secretKey: hash check failed");let[m,h,d,x]=f.decode(b),y=n.decrypt(g,m),T=r.create().update(y).update(d).digest(),L=T.subarray(0,32),A=n.encrypt(h,y,T.subarray(32,64)),S=St(g,A),B=s.create({dkLen:32}).update(x).update(g).digest();return X(y,A,T.subarray(32),S?B:L),S?L:B},prepare:g=>{ot(g,c.publicKey,"publicKey"),l(g,"prepare");let b=ze(g),E=o(b),w=n.prepare(b);return Object.freeze({publicKey:b,encapsulate:_=>{let m=_===void 0,h=m?pe(a):_,d;try{return ot(h,a,"message"),d=r.create().update(h).update(E).digest(),{cipherText:w.encrypt(h,d.subarray(32,64)),sharedSecret:d.subarray(0,32)}}finally{d!==void 0&&X(d.subarray(32)),m&&X(h)}},decapsulate:(_,m)=>{ot(m,f.bytesLen,"secretKey"),ot(_,c.cipherText,"cipherText");let[h,d,x,y]=f.decode(m);if(!St(d,b)||!St(x,E))throw new Error("ML-KEM.decapsulate: secretKey does not match prepared publicKey");let T=n.decrypt(_,h),L=r.create().update(T).update(E).digest(),A=L.subarray(0,32),S=w.encrypt(T,L.subarray(32,64)),B=St(_,S),I=s.create({dkLen:32}).update(y).update(_).digest();return X(T,S,L.subarray(32),B?I:A),B?A:I},clean:w.clean})}})}function Ao(e,t,n){return se.create({dkLen:e}).update(t).update(new Uint8Array([n])).digest()}var Lo={HASH256:On,HASH512:Tn,KDF:se,XOF:Pn,PRF:Ao},So=e=>To({...Lo,...e});var Zn=So(go[768]);function Yn(e,t,n){return e&t^~e&n}function Xn(e,t,n){return e&t^e&n^t&n}var be=class{constructor(t,n,o,r){O(this,"blockLen");O(this,"outputLen");O(this,"canXOF",!1);O(this,"padOffset");O(this,"isLE");O(this,"buffer");O(this,"view");O(this,"finished",!1);O(this,"length",0);O(this,"pos",0);O(this,"destroyed",!1);this.blockLen=t,this.outputLen=n,this.padOffset=o,this.isLE=r,this.buffer=new Uint8Array(t),this.view=re(this.buffer)}update(t){dt(this),z(t);let{view:n,buffer:o,blockLen:r}=this,s=t.length,i=!1;for(let c=0;c<s;){let f=Math.min(r-this.pos,s-c);if(f===r){let a=re(t);for(;r<=s-c;c+=r)this.process(a,c);i=!0;continue}o.set(c===0&&f===s?t:t.subarray(c,c+f),this.pos),this.pos+=f,c+=f,this.pos===r&&(this.process(n,0),this.pos=0,i=!0)}return this.length+=t.length,i&&this.roundClean(),this}digestInto(t){dt(this),Ut(t,this),this.finished=!0;let{buffer:n,view:o,blockLen:r,isLE:s}=this,{pos:i}=this;n[i++]=128,n.fill(0,i),this.padOffset>r-i&&(this.process(o,0),n.fill(0)),un(o,r-8,this.length*8,s),this.process(o,0),this.roundClean();let c=t===n?o:re(t),f=this.outputLen,a=f/4,u=this.get();if(f%4||a>u.length)throw new Error("invalid outputLen");for(let l=0;l<a;l++)c.setUint32(4*l,u[l],s)}digest(){let{buffer:t,outputLen:n}=this;this.digestInto(t);let o=t.slice(0,n);return this.destroy(),o}_cloneIntoMeta(t){let{buffer:n,length:o,finished:r,destroyed:s,pos:i}=this;return t.destroyed=s,t.finished=r,t.length=o,t.pos=i,i&&t.buffer.set(n),t}clone(){return this._cloneInto()}},Gn=Uint32Array.from([1779033703,3144134277,1013904242,2773480762,1359893119,2600822924,528734635,1541459225]);var _o=Uint32Array.from([1116352408,1899447441,3049323471,3921009573,961987163,1508970993,2453635748,2870763221,3624381080,310598401,607225278,1426881987,1925078388,2162078206,2614888103,3248222580,3835390401,4022224774,264347078,604807628,770255983,1249150122,1555081692,1996064986,2554220882,2821834349,2952996808,3210313671,3336571891,3584528711,113926993,338241895,666307205,773529912,1294757372,1396182291,1695183700,1986661051,2177026350,2456956037,2730485921,2820302411,3259730800,3345764771,3516065817,3600352804,4094571909,275423344,430227734,506948616,659060556,883997877,958139571,1322822218,1537002063,1747873779,1955562222,2024104815,2227730452,2361852424,2428436474,2756734187,3204031479,3329325298]),bt=new Uint32Array(64),Ke=class extends be{constructor(n,o){super(64,n,8,!1);O(this,"A",0);O(this,"B",0);O(this,"C",0);O(this,"D",0);O(this,"E",0);O(this,"F",0);O(this,"G",0);O(this,"H",0);this.A=o[0]|0,this.B=o[1]|0,this.C=o[2]|0,this.D=o[3]|0,this.E=o[4]|0,this.F=o[5]|0,this.G=o[6]|0,this.H=o[7]|0}get(){let{A:n,B:o,C:r,D:s,E:i,F:c,G:f,H:a}=this;return[n,o,r,s,i,c,f,a]}set(n,o,r,s,i,c,f,a){this.A=n|0,this.B=o|0,this.C=r|0,this.D=s|0,this.E=i|0,this.F=c|0,this.G=f|0,this.H=a|0}_cloneInto(n){return(n||(n=new this.constructor)).set(...this.get()),this._cloneIntoMeta(n)}process(n,o){for(let p=0;p<16;p++,o+=4)bt[p]=n.getUint32(o,!1);for(let p=16;p<64;p++){let g=bt[p-15],b=bt[p-2],E=rt(g,7)^rt(g,18)^g>>>3,w=rt(b,17)^rt(b,19)^b>>>10;bt[p]=w+bt[p-7]+E+bt[p-16]|0}let{A:r,B:s,C:i,D:c,E:f,F:a,G:u,H:l}=this;for(let p=0;p<64;p++){let g=rt(f,6)^rt(f,11)^rt(f,25),b=l+g+Yn(f,a,u)+_o[p]+bt[p]|0,w=(rt(r,2)^rt(r,13)^rt(r,22))+Xn(r,s,i)|0;l=u,u=a,a=f,f=c+b|0,c=i,i=s,s=r,r=b+w|0}r=r+this.A|0,s=s+this.B|0,i=i+this.C|0,c=c+this.D|0,f=f+this.E|0,a=a+this.F|0,u=u+this.G|0,l=l+this.H|0,this.set(r,s,i,c,f,a,u,l)}roundClean(){J(bt)}destroy(){this.destroyed=!0,this.set(0,0,0,0,0,0,0,0),J(this.buffer)}},Pe=class extends Ke{constructor(){super(32,Gn)}};var Vn=qt(()=>new Pe,mt(1));var Xe=BigInt(0),Vt=BigInt(1),Ro=BigInt(4),Ze=16,Wn=128,Io=5,Qn=2**31;function me(e){let t=e;if(typeof t!="function")throw new TypeError('"Point" expected constructor, got type='+typeof e);Et(t.fromAffine,"Point.fromAffine"),Et(t.fromBytes,"Point.fromBytes"),Et(t.fromHex,"Point.fromHex"),yt(t.BASE,"Point.BASE"),yt(t.ZERO,"Point.ZERO"),Ht(t.Fp),Ht(t.Fn)}function tr(e,t){me(e),er(t,e);let n=le(e.Fp,t.map(o=>o.Z));return t.map((o,r)=>e.fromAffine(o.toAffine(n[r])))}function vo(e,t,n=1){if(!Number.isSafeInteger(e)||e<n||e>t)throw new Error("invalid window size, expected ["+n+".."+t+"], got W="+e)}function Uo(e,t){let n=e*(4*t+128);if(n>Qn)throw new Error("invalid window size: table would need ~"+Math.ceil(n/2**20)+" MiB, max "+Qn/2**20+" MiB")}function No(e,t){if(e!==void 0){Et(e,"randomBytes");try{let n=e(t);if(!ce(n)||n.length!==t)return}catch{return}return e}}function er(e,t){$t(e,"points"),e.forEach((n,o)=>{if(!(n instanceof t))throw new Error("invalid point at index "+o)})}function ko(e,t,n){if(!Array.isArray(e))throw new Error("array of scalars expected");e.forEach((o,r)=>{if(!(n===void 0?t.isValid(o):gt(o)&&o<n))throw new Error("invalid scalar at index "+r)})}var nr=new WeakMap;function Ye(e){return nr.get(e)||1}function Fo(e,t){let n=e.double(),o=[e];for(let r=1;r<t;r++)o.push(o[r-1].add(n));return o}function Ho(e,t){let n=2**t,o=n/2,r=BigInt(n-1),s=[];for(;e>Xe;){let i=0;e&Vt&&(i=Number(e&r),i>=o&&(i-=n),e-=BigInt(i)),s.push(i),e>>=Vt}return s}function Co(e,t,n){let o=2**t,r=o/2,s=BigInt(o-1),i=BigInt(t),c=[];for(let f=0;f<n;f++){let a=Number(e&s);e>>=i,a>r&&(a-=o,e+=Vt),c.push(a)}if(e!==Xe)throw new Error("invalid wnaf");return c}function jo(e,t,n){let o=0;for(let s of n)o=Math.max(o,s.length);let r=e;for(let s=o-1;s>=0;s--){s!==o-1&&(r=r.double());for(let i=0;i<n.length;i++){let c=n[i][s];if(c){let f=t[i][Math.abs(c)-1>>1];r=r.add(c<0?f.negate():f)}}}return r}var we=class{constructor(t,n){O(this,"Point");O(this,"BASE");O(this,"ZERO");O(this,"randomBytes");O(this,"wnafPrecomputes",new WeakMap);O(this,"baseCanBeBlinded");O(this,"bits");me(t),this.randomBytes=No(n,Ze),this.Point=t,this.BASE=t.BASE,this.ZERO=t.ZERO,this.bits=t.Fn.BITS}buildWnafTable(t,n,o){let r=Math.ceil(o/n)+1,s=2**(n-1),i=[],c=t;for(let f=0;f<r;f++){let a=c;for(let u=0;u<s;u++)i.push(a),a=a.add(c);c=i[i.length-1].double()}return{W:n,bits:o,windows:r,comp:i}}wnafCachedCT(t,n){let{W:o,windows:r,comp:s}=t,i=2**(o-1),c=Co(n,o,r),f=this.ZERO,a=this.BASE;for(let u=0;u<r;u++){let l=c[u],p=u*i,g=Math.abs(l)-1,b=s[p];for(let w=1;w<i;w++)b=w===g?s[p+w]:b;let E=b.negate();l===0?a=a.add(s[p]):f=f.add(l<0?E:b)}return{p:f,f:a}}getWnafPrecomputes(t,n,o,r){let s=this.wnafPrecomputes.get(n),i=s?.find(c=>c.W===t&&c.bits===o);return i||(i=this.buildWnafTable(n,t,o),typeof r=="function"&&(i={...i,comp:r(i.comp)}),s||(s=[],this.wnafPrecomputes.set(n,s)),s.push(i)),i}assertPoint(t){if(!(t instanceof this.Point))throw new TypeError('"point" expected Point instance, got type='+typeof t)}validateMulInput(t,n){if(this.assertPoint(t),!Fe(n,Vt,this.Point.Fn.ORDER))throw new Error("invalid scalar")}runCT(t,n,o,r){let s=Ye(t);return s===1?this.fixedWindowCT(t,n,o):this.wnafCachedCT(this.getWnafPrecomputes(s,t,o,r),n)}mulCT(t,n,o){return this.validateMulInput(t,n),this.runCT(t,n,this.bits,o)}mulCTBlinded(t,n,o){if(this.validateMulInput(t,n),this.randomBytes===void 0)throw new Error("randomBytes is required for scalar blinding");let r=this.Point.Fn.BITS+Wn,s=this.randomBytes(Ze);if(!ce(s)||s.length!==Ze)throw new Error("randomBytes returned invalid byte array");s[0]=s[0]&63|128;let i=n+ae(s)*this.Point.Fn.ORDER;return this.runCT(t,i,r,o)}fixedWindowCT(t,n,o){let r=Io,s=1<<r,i=vn(r),c=new Array(s);c[0]=this.ZERO;for(let u=1;u<s;u++)c[u]=c[u-1].add(t);let f=Math.ceil(o/r),a=this.ZERO;for(let u=f-1;u>=0;u--){if(u!==f-1)for(let g=0;g<r;g++)a=a.double();let l=Number(n>>BigInt(u*r)&i),p=c[0];for(let g=1;g<s;g++)p=g===l?c[g]:p;a=a.add(p)}return{p:a,f:a}}shouldBlind(t,n){return this.randomBytes===void 0?!1:n===Vt?!0:t!==this.BASE?!1:(this.baseCanBeBlinded===void 0&&(this.baseCanBeBlinded=this.mulUnsafe(this.BASE,this.Point.Fn.ORDER).is0()),this.baseCanBeBlinded)}mulSecret(t,n,o,r){return this.shouldBlind(t,o)?this.mulCTBlinded(t,n,r):this.mulCT(t,n,r)}mulUnsafe(t,n,o){if(this.assertPoint(t),!gt(n))throw new Error("invalid scalar");let r=Ye(t);if(r===1||n>=this.Point.Fn.ORDER)return Do(this.Point,[t],[n],!0);let s=this.getWnafPrecomputes(r,t,this.bits,o);return this.wnafCachedCT(s,n).p}setWindowSize(t,n){this.assertPoint(t),vo(n,this.bits);let o=Math.ceil((this.bits+Wn)/n)+1;Uo(o*2**(n-1),this.Point.Fp.BYTES),nr.set(t,n),this.wnafPrecomputes.delete(t)}hasWindowSize(t){return Ye(t)!==1}};function Do(e,t,n,o=!1){if(me(e),er(t,e),Bt(o,"allowOversized"),ko(n,e.Fn,o?e.Fn.ORDER**Ro:void 0),t.length!==n.length)throw new Error("arrays of points and scalars must have equal length");let r=t.map(i=>Fo(i,4)),s=n.map(i=>Ho(i,4));return jo(e.ZERO,r,s)}function Jn(e,t,n){if(t){if(t.ORDER!==e)throw new Error("Field.ORDER must match order: Fp == p, Fn == n");return Ht(t),t}else return he(e,{isLE:n})}function rr(e,t,n={},o){if(e!=="weierstrass"&&e!=="edwards")throw new Error('expected curve type "weierstrass" or "edwards"');if(o===void 0&&(o=e==="edwards"),!t||typeof t!="object")throw new Error(`expected valid ${e} CURVE object`);ht(n);for(let f of["p","n","h"]){let a=t[f];if(!(gt(a)&&a!==Xe))throw new Error(`CURVE.${f} must be positive bigint`)}let r=Jn(t.p,n.Fp,o),s=Jn(t.n,n.Fn,o),c=["Gx","Gy","a",e==="weierstrass"?"b":"d"];for(let f of c)if(!r.isValid(t[f]))throw new Error(`CURVE.${f} must be valid field element of CURVE.Fp`);return t=Object.freeze(Object.assign({},t)),{CURVE:t,Fp:r,Fn:s}}function Ge(e,t){return function(o){let r=e(o);return{secretKey:r,publicKey:t(r)}}}var Ee=BigInt(0),Be=BigInt(1),Oe=BigInt(2),Mo=BigInt(4),or=BigInt(8);function qo(e,t,n,o){let r=e.sqr(n),s=e.sqr(o),i=e.add(e.mul(t.a,r),s),c=e.add(e.ONE,e.mul(t.d,e.mul(r,s)));return e.eql(i,c)}function sr(e,t={}){ht(t,{},{},"extraOpts");let n=t,o=rr("edwards",e,n,n.FpFnLE),{Fp:r,Fn:s}=o,i=o.CURVE,{h:c}=i;if(Pt(r,i.a)!==1)throw new Error("edwards: CURVE.a must be a square in Fp for complete addition formulas");if(Pt(r,i.d)!==-1)throw new Error("edwards: CURVE.d must be a non-square in Fp for complete addition formulas");ht(n,{},{uvRatio:"function",randomBytes:"function"});let f=n.randomBytes===void 0?fe:n.randomBytes,a=Oe<<BigInt(r.BYTES*8)-Be;function u(h){if(!r.isOdd)throw new Error("Field does not have .isOdd()");return r.isOdd(h)}let l=n.uvRatio===void 0?(h,d)=>{try{return{isValid:!0,value:r.sqrt(r.div(h,d))}}catch{return{isValid:!1,value:Ee}}}:n.uvRatio;if(!qo(r,i,i.Gx,i.Gy))throw new Error("bad curve params: generator point");let p=r.eql(i.a,r.neg(r.ONE))?h=>r.neg(h):r.eql(i.a,r.ONE)?h=>h:h=>r.mul(i.a,h);function g(h,d,x=!1){let y=x?Be:Ee;return At("coordinate "+h,d,y,a),d}function b(h){if(!(h instanceof E))throw new Error("EdwardsPoint expected")}let m=class m{constructor(d,x,y,T){O(this,"X");O(this,"Y");O(this,"Z");O(this,"T");this.X=g("x",d),this.Y=g("y",x),this.Z=g("z",y,!0),this.T=g("t",T),Object.freeze(this)}static CURVE(){return i}static fromAffine(d){if(d instanceof m)throw new Error("extended point not allowed");let{x,y}=d||{};return g("x",x),g("y",y),new m(x,y,r.ONE,r.mul(x,y))}static fromBytes(d,x=!1){let y=r.BYTES,{a:T,d:L}=i;d=Tt(lt(d,y,"point")),Bt(x,"zip215");let A=Tt(d),S=d[y-1];A[y-1]=S&-129;let B=Ot(A),I=x?a:r.ORDER;At("point.y",B,Ee,I);let U=r.sqr(B),k=r.sub(U,r.ONE),H=r.sub(r.mulN(L,U),T),{isValid:v,value:N}=l(k,H);if(!v)throw new Error("bad point: invalid y coordinate");let F=u(N),R=(S&128)!==0;if(!x&&r.is0(N)&&R)throw new Error("bad point: x=0 and x_0=1");return R!==F&&(N=r.neg(N)),m.fromAffine({x:N,y:B})}static fromHex(d,x=!1){return m.fromBytes(Rn(d),x)}get x(){return this.toAffine().x}get y(){return this.toAffine().y}precompute(d=6,x=!0){return _.setWindowSize(this,d),x||this.multiply(Oe),this}assertValidity(){let d=this,{a:x,d:y}=i;if(d.is0())throw new Error("bad point: ZERO");let{X:T,Y:L,Z:A,T:S}=d,B=r.sqr(T),I=r.sqr(L),U=r.sqr(A),k=r.sqr(U),H=r.mul(B,x),v=r.mul(r.add(H,I),U),N=r.add(k,r.mul(y,r.mul(B,I)));if(!r.eql(v,N))throw new Error("bad point: equation left != right (1)");let F=r.mul(T,L),R=r.mul(A,S);if(!r.eql(F,R))throw new Error("bad point: equation left != right (2)")}equals(d){b(d);let{X:x,Y:y,Z:T}=this,{X:L,Y:A,Z:S}=d,B=r.mul(x,S),I=r.mul(L,T),U=r.mul(y,S),k=r.mul(A,T);return r.eql(B,I)&&r.eql(U,k)}is0(){return this.equals(m.ZERO)}negate(){return new m(r.neg(this.X),this.Y,this.Z,r.neg(this.T))}double(){let{X:d,Y:x,Z:y}=this,T=r.sqr(d),L=r.sqr(x),A=r.mul(r.sqr(y),Oe),S=p(T),B=r.addN(d,x),I=r.sub(r.subN(r.sqr(B),T),L),U=r.addN(S,L),k=r.subN(U,A),H=r.subN(S,L),v=r.mul(I,k),N=r.mul(U,H),F=r.mul(I,H),R=r.mul(k,U);return new m(v,N,R,F)}add(d){b(d);let{d:x}=i,{X:y,Y:T,Z:L,T:A}=this,{X:S,Y:B,Z:I,T:U}=d,k=r.mul(y,S),H=r.mul(T,B),v=r.mul(r.mulN(A,x),U),N=r.mul(L,I),F=r.sub(r.subN(r.mulN(r.addN(y,T),r.addN(S,B)),k),H),R=r.subN(N,v),C=r.addN(N,v),j=r.sub(H,p(k)),D=r.mul(F,R),P=r.mul(C,j),it=r.mul(F,j),nt=r.mul(R,C);return new m(D,P,nt,it)}subtract(d){return b(d),this.add(d.negate())}multiply(d){if(!s.isValidNot0(d))throw new RangeError("invalid scalar: expected 1 <= sc < curve.n");let{p:x,f:y}=_.mulSecret(this,d,c,w);return w([x,y])[0]}multiplyUnsafe(d){if(!s.isValid(d))throw new RangeError("invalid scalar: expected 0 <= sc < curve.n");return d===Ee?m.ZERO:this.is0()||d===Be?this:_.mulUnsafe(this,d,w)}isSmallOrder(){return this.clearCofactor().is0()}isTorsionFree(){return _.mulUnsafe(this,i.n).is0()}toAffine(d){let x=this,y=d;if(y!=null&&typeof y!="bigint")throw new TypeError('"invertedZ" expected bigint, got type='+typeof y);let{X:T,Y:L,Z:A}=x,S=x.is0();y==null&&(y=S?r.create(or):r.inv(A));let B=r.mul(T,y),I=r.mul(L,y),U=r.mul(A,y);if(S)return{x:r.ZERO,y:r.ONE};if(!r.eql(U,r.ONE))throw new Error("invZ was invalid");return{x:B,y:I}}clearCofactor(){return c===Be?this:c===Oe?this.double():c===Mo?this.double().double():c===or?this.double().double().double():this.multiplyUnsafe(c)}toBytes(){let{x:d,y:x}=this.toAffine(),y=r.toBytes(x);return y[y.length-1]|=u(d)?128:0,y}toHex(){return _n(this.toBytes())}toString(){return`<Point ${this.is0()?"ZERO":this.toHex()}>`}};O(m,"BASE",new m(i.Gx,i.Gy,r.ONE,r.mul(i.Gx,i.Gy))),O(m,"ZERO",new m(r.ZERO,r.ONE,r.ONE,r.ZERO)),O(m,"Fp",r),O(m,"Fn",s);let E=m,w=h=>tr(E,h),_=new we(E,f);return _.bits>=6&&E.BASE.precompute(6),Object.freeze(E.prototype),Object.freeze(E),E}var Rt=BigInt(0),et=BigInt(1),Te=BigInt(2);function ir(e,t){return e+t-(t>>et<<et)}function zo(e){let t=BigInt(6)*e;return(n,o,r)=>{let s=o+r,c=((t+r-o)*n+o)%e;return{x_2:c,x_3:s-c}}}function $o(e){return ht(e,{P:"bigint",type:"string",adjustScalarBytes:"function",powPminus2:"function"},{randomBytes:"function",scalarMultBase:"function"}),Object.freeze({...e})}function cr(e){let t=$o(e),{P:n,type:o,adjustScalarBytes:r,powPminus2:s,randomBytes:i}=t,c=t.scalarMultBase,f=o==="x25519";if(!f&&o!=="x448")throw new Error("invalid type");let a=i===void 0?fe:i,u=f?255:448,l=zo(n),p=f?32:56,g=BigInt(f?9:5),b=BigInt(f?121665:39081),E=f?Te**BigInt(254):Te**BigInt(447),w=f?BigInt(8)*(Te**BigInt(251)-et):BigInt(4)*(Te**BigInt(445)-et),_=E+w+et,m=v=>q(v,n),h=d(g);function d(v){return ue(m(v),p)}function x(v){let N=Tt(lt(v,p,"uCoordinate"));return f&&(N[31]&=127),m(Ot(N))}function y(v){return Ot(r(Tt(lt(v,p,"scalar"))))}let T=new Set(f?[Rt,et,n-et,BigInt("325606250916557431795983626356110631294008115727848805560023387167927233504"),BigInt("39382357235489614581723060781553021112529911719440698176882885853963445705823")]:[Rt,et,n-et]);function L(v,N){let F=x(N);if(T.has(F))throw new Error("invalid private or public key received");let R=I(F,y(v));if(R===Rt)throw new Error("invalid private or public key received");return d(R)}function A(v){if(c===void 0)return L(v,h);let N=y(v);At("scalar",N,E,_);let F=m(c(N));if(F===Rt)throw new Error("invalid private or public key received");return d(F)}let S=A,B=L;function I(v,N){At("u",v,Rt,n),At("scalar",N,E,_);let F=N,R=v,C=et,j=Rt,D=v,P=et,it=F^F>>et;for(let ct=BigInt(u-1);ct>=Rt;ct--){let ut=ir(n,it>>ct);({x_2:C,x_3:D}=l(ut,C,D)),{x_2:j,x_3:P}=l(ut,j,P);let ft=C+j,Re=m(ft*ft),Ie=C-j,en=m(Ie*Ie),nn=Re-en,Ir=D+P,vr=D-P,rn=m(vr*ft),on=m(Ir*Ie),sn=rn+on,cn=rn-on;D=m(sn*sn),P=m(R*m(cn*cn)),C=m(Re*en),j=m(nn*(Re+m(b*nn)))}let nt=ir(n,F);({x_2:C,x_3:D}=l(nt,C,D)),{x_2:j,x_3:P}=l(nt,j,P);let xt=s(j);return m(C*xt)}let U={secretKey:p,publicKey:p,seed:p},k=v=>(v=v===void 0?a(p):v,lt(v,U.seed,"seed"),v),H={randomSecretKey:k};return Object.freeze(U),Object.freeze(H),Object.freeze({keygen:Ge(k,S),getSharedSecret:B,getPublicKey:S,scalarMult:L,scalarMultBase:A,utils:H,GuBytes:h.slice(),lengths:U})}var fr=BigInt(0),Ko=BigInt(1),ar=BigInt(2),Po=BigInt(3),Zo=BigInt(5),Yo=BigInt(8),Ae=BigInt("0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffed"),Xo={p:Ae,n:BigInt("0x1000000000000000000000000000000014def9dea2f79cd65812631a5cf5d3ed"),h:Yo,a:BigInt("0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffec"),d:BigInt("0x52036cee2b6ffe738cc740797779e89800700a4d4141d8ab75eb4dca135978a3"),Gx:BigInt("0x216936d3cd6e53fec0a4e231fdd6dc5c692cc7609525a7b2c9562d608f25d51a"),Gy:BigInt("0x6666666666666666666666666666666666666666666666666666666666666658")};function lr(e){let t=BigInt(10),n=BigInt(20),o=BigInt(40),r=BigInt(80),s=Ae,c=e*e%s*e%s,f=tt(c,ar,s)*c%s,a=tt(f,Ko,s)*e%s,u=tt(a,Zo,s)*a%s,l=tt(u,t,s)*u%s,p=tt(l,n,s)*l%s,g=tt(p,o,s)*p%s,b=tt(g,r,s)*g%s,E=tt(b,r,s)*g%s,w=tt(E,t,s)*u%s;return{pow_p_5_8:tt(w,ar,s)*e%s,b2:c}}function Go(e){return e[0]&=248,e[31]&=127,e[31]|=64,e}var ur=BigInt("19681161376707505956807079304988542015446066515923890162744021073123829784752");function Vo(e,t){let n=Ae,o=q(t*t*t,n),r=q(o*o*t,n),s=lr(e*r).pow_p_5_8,i=q(e*o*s,n),c=q(t*i*i,n),f=i,a=q(i*ur,n),u=c===e,l=c===q(-e,n),p=c===q(-e*ur,n);return u&&(i=f),(l||p)&&(i=a),Mn(i,n)&&(i=q(-i,n)),{isValid:u||l,value:i}}var dr=sr(Xo,{uvRatio:Vo});var hr=(()=>{let e=Ae,t=n=>{let{pow_p_5_8:o,b2:r}=lr(n);return q(tt(o,Po,e)*r,e)};return cr({P:e,type:"x25519",powPminus2:t,adjustScalarBytes:Go,scalarMultBase:n=>{let o=q(n,dr.Fn.ORDER);if(o===fr)return fr;let r=dr.BASE.multiply(o);return q((r.Z+r.Y)*t(q(r.Z-r.Y,e)),e)}})})();function Ve(e){return e instanceof Uint8Array||ArrayBuffer.isView(e)&&e.constructor.name==="Uint8Array"&&"BYTES_PER_ELEMENT"in e&&e.BYTES_PER_ELEMENT===1}var Le=e=>e?`"${e}" `:"";function Se(e,t=""){if(typeof e!="boolean")throw new TypeError(Le(t)+"expected boolean, got type="+typeof e);return e}function It(e,t=""){if(typeof e!="number")throw new TypeError(Le(t)+"expected number, got "+typeof e);if(!Number.isSafeInteger(e)||e<0)throw new RangeError(Le(t)+"expected integer >= 0, got "+e);return e}function K(e,t,n=""){if(Ve(e)&&(t===void 0||e.length===t))return e;t!==void 0&&It(t,"length");let o=Ve(e),r=t!==void 0?` of length ${t}`:"",s=o?`length=${e.length}`:`type=${typeof e}`,i=Le(n)+"expected Uint8Array"+r+", got "+s;throw o?new RangeError(i):new TypeError(i)}var pr=(e,t)=>{if(e===null||typeof e!="object"||Array.isArray(e))throw new TypeError(t==="object"?"expected valid options object":`"${t}" expected object, got type=${typeof e}`)};function We(e,t=!0){if(e.destroyed)throw new Error("hash was destroyed");if(t&&e.finished)throw new Error("digest() was already called")}function xr(e,t){K(e,void 0,"output");let n=t.outputLen;if(!(e.length>=n))throw new RangeError('"output" expected length >= '+n)}function at(e){return new Uint32Array(e.buffer,e.byteOffset,Math.floor(e.byteLength/4))}function st(...e){for(let t=0;t<e.length;t++)e[t].fill(0)}function Wo(e){return new DataView(e.buffer,e.byteOffset,e.byteLength)}var wt=new Uint8Array(new Uint32Array([287454020]).buffer)[0]===68;function Qo(e){return e<<24&4278190080|e<<8&16711680|e>>>8&65280|e>>>24&255}function Jo(e){for(let t=0;t<e.length;t++)e[t]=Qo(e[t]);return e}var pt=wt?e=>e:Jo;function ts(e,t){return!e.byteLength||!t.byteLength?!1:e.buffer===t.buffer&&e.byteOffset<t.byteOffset+t.byteLength&&t.byteOffset<e.byteOffset+e.byteLength}function yr(e,t){if(ts(e,t)&&e.byteOffset<t.byteOffset)throw new Error("complex overlap of input and output is not supported")}function gr(e,t){return pr(e,"defaults"),pr(t,"opts"),Object.assign(e,t)}function br(e,t){if(e=K(e),t=K(t),e.length!==t.length)return!1;let n=0;for(let o=0;o<e.length;o++)n|=e[o]^t[o];return n===0}function wr(e,t,n){let o=t,r=n||(()=>[]),s=(c,f)=>o(f,...r(c)).update(c).digest(),i=o(new Uint8Array(e),...r(new Uint8Array(0)));return s.outputLen=i.outputLen,s.blockLen=i.blockLen,s.create=(c,...f)=>o(c,...f),s}var mr=(e,t)=>{function n(o,...r){if(K(o,void 0,"key"),e.nonceLength!==void 0){let l=r[0];K(l,e.varSizeNonce?void 0:e.nonceLength,"nonce")}let s=e.tagLength,i=e.nonceLength!==void 0?1:0;if(!e.withAAD){for(let l=i;l<r.length;l++)if(Ve(r[l]))throw new Error("AAD not supported")}e.withAAD&&r[i]!==void 0&&K(r[i],void 0,"AAD");let c=t(o,...r),f=(l,p)=>{if(p!==void 0){if(l!==2)throw new Error("cipher output not supported");K(p,void 0,"output")}},a=!1;return{encrypt(l,p){if(a)throw new Error("cannot encrypt() twice with same key + nonce");return a=!0,K(l,void 0,"data"),f(c.encrypt.length,p),c.encrypt(l,p)},decrypt(l,p){if(K(l,void 0,"data"),s&&l.length<s)throw new Error('"ciphertext" expected length >= tagLength='+s);return f(c.decrypt.length,p),c.decrypt(l,p)}}}return Object.assign(n,e),n};function Wt(e,t,n=!0){if(t===void 0)return new Uint8Array(e);if(K(t,e,"output"),n&&!Qt(t))throw new Error("invalid output, must be aligned");return t}function Er(e,t,n){It(e),It(t),Se(n);let o=new Uint8Array(16),r=Wo(o);return r.setBigUint64(0,BigInt(t),n),r.setBigUint64(8,BigInt(e),n),o}function Qt(e){return e.byteOffset%4===0}function Ct(e){return Uint8Array.from(K(e))}var Or=e=>Uint8Array.from(e.split(""),t=>t.charCodeAt(0)),es=pt(at(Or("expand 16-byte k"))),ns=pt(at(Or("expand 32-byte k")));function M(e,t){return e<<t|e>>>32-t}var Jt=64,rs=16,Qe=2**32-1,Br=Uint32Array.of();function os(e,t,n,o,r,s,i,c){let f=r.length,a=new Uint8Array(Jt),u=at(a),l=wt&&Qt(r)&&Qt(s),p=l?at(r):Br,g=l?at(s):Br;if(!wt){for(let b=0;b<f;i++){if(e(t,n,o,u,i,c),pt(u),i>=Qe)throw new Error("arx: counter overflow");let E=Math.min(Jt,f-b);for(let w=0,_;w<E;w++)_=b+w,s[_]=r[_]^a[w];b+=E}return}for(let b=0;b<f;i++){if(e(t,n,o,u,i,c),i>=Qe)throw new Error("arx: counter overflow");let E=Math.min(Jt,f-b);if(l&&E===Jt){let w=b/4;if(b%4!==0)throw new Error("arx: invalid block position");for(let _=0,m;_<rs;_++)m=w+_,g[m]=p[m]^u[_];b+=Jt;continue}for(let w=0,_;w<E;w++)_=b+w,s[_]=r[_]^a[w];b+=E}}function Tr(e,t){let{allowShortKeys:n,extendNonceFn:o,counterLength:r,counterRight:s,rounds:i}=gr({allowShortKeys:!1,counterLength:8,counterRight:!1,rounds:20},t);if(typeof e!="function")throw new Error("core must be a function");return It(r),It(i),Se(s),Se(n),(c,f,a,u,l=0)=>{K(c,void 0,"key"),K(f,void 0,"nonce"),K(a,void 0,"data");let p=a.length,g=u!==void 0;if(u=Wt(p,u,!1),g&&yr(a,u),It(l),l<0||l>=Qe)throw new Error("arx: counter overflow");let b=[],E=c.length,w,_;if(E===32)b.push(w=Ct(c)),_=ns;else if(E===16&&n)w=new Uint8Array(32),w.set(c),w.set(c,16),_=es,b.push(w);else throw K(c,32,"arx key"),new Error("invalid key size");(!wt||!Qt(f))&&b.push(f=Ct(f));let m=at(w);if(o){if(f.length!==24)throw new Error("arx: extended nonce must be 24 bytes");let x=f.subarray(0,16);if(wt)o(_,m,at(x),m);else{let y=pt(Uint32Array.from(_));o(y,m,at(x),m),st(y),pt(m)}f=f.subarray(16)}else wt||pt(m);let h=16-r;if(h!==f.length)throw new Error(`arx: nonce must be ${h} or 16 bytes`);if(h!==12){let x=new Uint8Array(12);x.set(f,s?0:12-f.length),f=x,b.push(f)}let d=pt(at(f));try{return os(e,_,m,d,a,u,l,i),u}finally{st(...b)}}}function G(e,t){return e[t++]&255|(e[t++]&255)<<8}var Je=class{constructor(t){O(this,"blockLen",16);O(this,"outputLen",16);O(this,"buffer",new Uint8Array(16));O(this,"r",new Uint16Array(10));O(this,"h",new Uint16Array(10));O(this,"pad",new Uint16Array(8));O(this,"pos",0);O(this,"finished",!1);O(this,"destroyed",!1);t=Ct(K(t,32,"key"));let n=G(t,0),o=G(t,2),r=G(t,4),s=G(t,6),i=G(t,8),c=G(t,10),f=G(t,12),a=G(t,14);this.r[0]=n&8191,this.r[1]=(n>>>13|o<<3)&8191,this.r[2]=(o>>>10|r<<6)&7939,this.r[3]=(r>>>7|s<<9)&8191,this.r[4]=(s>>>4|i<<12)&255,this.r[5]=i>>>1&8190,this.r[6]=(i>>>14|c<<2)&8191,this.r[7]=(c>>>11|f<<5)&8065,this.r[8]=(f>>>8|a<<8)&8191,this.r[9]=a>>>5&127;for(let u=0;u<8;u++)this.pad[u]=G(t,16+2*u)}process(t,n,o=!1){let r=o?0:2048,{h:s,r:i}=this,c=i[0],f=i[1],a=i[2],u=i[3],l=i[4],p=i[5],g=i[6],b=i[7],E=i[8],w=i[9],_=G(t,n+0),m=G(t,n+2),h=G(t,n+4),d=G(t,n+6),x=G(t,n+8),y=G(t,n+10),T=G(t,n+12),L=G(t,n+14),A=s[0]+(_&8191),S=s[1]+((_>>>13|m<<3)&8191),B=s[2]+((m>>>10|h<<6)&8191),I=s[3]+((h>>>7|d<<9)&8191),U=s[4]+((d>>>4|x<<12)&8191),k=s[5]+(x>>>1&8191),H=s[6]+((x>>>14|y<<2)&8191),v=s[7]+((y>>>11|T<<5)&8191),N=s[8]+((T>>>8|L<<8)&8191),F=s[9]+(L>>>5|r),R=0,C=R+A*c+S*(5*w)+B*(5*E)+I*(5*b)+U*(5*g);R=C>>>13,C&=8191,C+=k*(5*p)+H*(5*l)+v*(5*u)+N*(5*a)+F*(5*f),R+=C>>>13,C&=8191;let j=R+A*f+S*c+B*(5*w)+I*(5*E)+U*(5*b);R=j>>>13,j&=8191,j+=k*(5*g)+H*(5*p)+v*(5*l)+N*(5*u)+F*(5*a),R+=j>>>13,j&=8191;let D=R+A*a+S*f+B*c+I*(5*w)+U*(5*E);R=D>>>13,D&=8191,D+=k*(5*b)+H*(5*g)+v*(5*p)+N*(5*l)+F*(5*u),R+=D>>>13,D&=8191;let P=R+A*u+S*a+B*f+I*c+U*(5*w);R=P>>>13,P&=8191,P+=k*(5*E)+H*(5*b)+v*(5*g)+N*(5*p)+F*(5*l),R+=P>>>13,P&=8191;let it=R+A*l+S*u+B*a+I*f+U*c;R=it>>>13,it&=8191,it+=k*(5*w)+H*(5*E)+v*(5*b)+N*(5*g)+F*(5*p),R+=it>>>13,it&=8191;let nt=R+A*p+S*l+B*u+I*a+U*f;R=nt>>>13,nt&=8191,nt+=k*c+H*(5*w)+v*(5*E)+N*(5*b)+F*(5*g),R+=nt>>>13,nt&=8191;let xt=R+A*g+S*p+B*l+I*u+U*a;R=xt>>>13,xt&=8191,xt+=k*f+H*c+v*(5*w)+N*(5*E)+F*(5*b),R+=xt>>>13,xt&=8191;let ct=R+A*b+S*g+B*p+I*l+U*u;R=ct>>>13,ct&=8191,ct+=k*a+H*f+v*c+N*(5*w)+F*(5*E),R+=ct>>>13,ct&=8191;let ut=R+A*E+S*b+B*g+I*p+U*l;R=ut>>>13,ut&=8191,ut+=k*u+H*a+v*f+N*c+F*(5*w),R+=ut>>>13,ut&=8191;let ft=R+A*w+S*E+B*b+I*g+U*p;R=ft>>>13,ft&=8191,ft+=k*l+H*u+v*a+N*f+F*c,R+=ft>>>13,ft&=8191,R=(R<<2)+R|0,R=R+C|0,C=R&8191,R=R>>>13,j+=R,s[0]=C,s[1]=j,s[2]=D,s[3]=P,s[4]=it,s[5]=nt,s[6]=xt,s[7]=ct,s[8]=ut,s[9]=ft}finalize(){let{h:t,pad:n}=this,o=new Uint16Array(10),r=t[1]>>>13;t[1]&=8191;for(let c=2;c<10;c++)t[c]+=r,r=t[c]>>>13,t[c]&=8191;t[0]+=r*5,r=t[0]>>>13,t[0]&=8191,t[1]+=r,r=t[1]>>>13,t[1]&=8191,t[2]+=r,o[0]=t[0]+5,r=o[0]>>>13,o[0]&=8191;for(let c=1;c<10;c++)o[c]=t[c]+r,r=o[c]>>>13,o[c]&=8191;o[9]-=8192;let s=(r^1)-1;for(let c=0;c<10;c++)o[c]&=s;s=~s;for(let c=0;c<10;c++)t[c]=t[c]&s|o[c];t[0]=(t[0]|t[1]<<13)&65535,t[1]=(t[1]>>>3|t[2]<<10)&65535,t[2]=(t[2]>>>6|t[3]<<7)&65535,t[3]=(t[3]>>>9|t[4]<<4)&65535,t[4]=(t[4]>>>12|t[5]<<1|t[6]<<14)&65535,t[5]=(t[6]>>>2|t[7]<<11)&65535,t[6]=(t[7]>>>5|t[8]<<8)&65535,t[7]=(t[8]>>>8|t[9]<<5)&65535;let i=t[0]+n[0];t[0]=i&65535;for(let c=1;c<8;c++)i=(t[c]+n[c]|0)+(i>>>16)|0,t[c]=i&65535;st(o)}update(t){We(this),K(t),t=Ct(t);let{buffer:n,blockLen:o}=this,r=t.length;for(let s=0;s<r;){let i=Math.min(o-this.pos,r-s);if(i===o){for(;o<=r-s;s+=o)this.process(t,s);continue}n.set(t.subarray(s,s+i),this.pos),this.pos+=i,s+=i,this.pos===o&&(this.process(n,0,!1),this.pos=0)}return this}destroy(){this.destroyed=!0,st(this.h,this.r,this.buffer,this.pad)}digestInto(t){We(this),xr(t,this),this.finished=!0;let{buffer:n,h:o}=this,{pos:r}=this;if(r){for(n[r++]=1;r<16;r++)n[r]=0;this.process(n,0,!0)}this.finalize();let s=0;for(let i=0;i<8;i++)t[s++]=o[i]>>>0,t[s++]=o[i]>>>8}digest(){let{buffer:t,outputLen:n}=this;this.digestInto(t);let o=t.slice(0,n);return this.destroy(),o}},Ar=wr(32,e=>new Je(e));function ss(e,t,n,o,r,s=20){let i=e[0],c=e[1],f=e[2],a=e[3],u=t[0],l=t[1],p=t[2],g=t[3],b=t[4],E=t[5],w=t[6],_=t[7],m=r,h=n[0],d=n[1],x=n[2],y=i,T=c,L=f,A=a,S=u,B=l,I=p,U=g,k=b,H=E,v=w,N=_,F=m,R=h,C=d,j=x;for(let P=0;P<s;P+=2)y=y+S|0,F=M(F^y,16),k=k+F|0,S=M(S^k,12),y=y+S|0,F=M(F^y,8),k=k+F|0,S=M(S^k,7),T=T+B|0,R=M(R^T,16),H=H+R|0,B=M(B^H,12),T=T+B|0,R=M(R^T,8),H=H+R|0,B=M(B^H,7),L=L+I|0,C=M(C^L,16),v=v+C|0,I=M(I^v,12),L=L+I|0,C=M(C^L,8),v=v+C|0,I=M(I^v,7),A=A+U|0,j=M(j^A,16),N=N+j|0,U=M(U^N,12),A=A+U|0,j=M(j^A,8),N=N+j|0,U=M(U^N,7),y=y+B|0,j=M(j^y,16),v=v+j|0,B=M(B^v,12),y=y+B|0,j=M(j^y,8),v=v+j|0,B=M(B^v,7),T=T+I|0,F=M(F^T,16),N=N+F|0,I=M(I^N,12),T=T+I|0,F=M(F^T,8),N=N+F|0,I=M(I^N,7),L=L+U|0,R=M(R^L,16),k=k+R|0,U=M(U^k,12),L=L+U|0,R=M(R^L,8),k=k+R|0,U=M(U^k,7),A=A+S|0,C=M(C^A,16),H=H+C|0,S=M(S^H,12),A=A+S|0,C=M(C^A,8),H=H+C|0,S=M(S^H,7);let D=0;o[D++]=i+y|0,o[D++]=c+T|0,o[D++]=f+L|0,o[D++]=a+A|0,o[D++]=u+S|0,o[D++]=l+B|0,o[D++]=p+I|0,o[D++]=g+U|0,o[D++]=b+k|0,o[D++]=E+H|0,o[D++]=w+v|0,o[D++]=_+N|0,o[D++]=m+F|0,o[D++]=h+R|0,o[D++]=d+C|0,o[D++]=x+j|0}var is=Tr(ss,{counterRight:!1,counterLength:4,allowShortKeys:!1});var cs=new Uint8Array(16),Lr=(e,t)=>{e.update(t);let n=t.length%16;n&&e.update(cs.subarray(n))},fs=new Uint8Array(32);function Sr(e,t,n,o,r){r!==void 0&&K(r,void 0,"AAD");let s=e(t,n,fs),i=Er(o.length,r?r.length:0,!0),c=Ar.create(s);r&&Lr(c,r),Lr(c,o),c.update(i);let f=c.digest();return st(s,i),f}var as=e=>(t,n,o)=>({encrypt(s,i){let c=s.length;i=Wt(c+16,i,!1),i.set(s);let f=i.subarray(0,-16);e(t,n,f,f,1);let a=Sr(e,t,n,f,o);return i.set(a,c),st(a),i},decrypt(s,i){i=Wt(s.length-16,i,!1);let c=s.subarray(0,-16),f=s.subarray(-16),a=Sr(e,t,n,c,o);if(!br(f,a))throw st(a),new Error("invalid tag");return i.set(s.subarray(0,-16)),e(t,n,i,i,1),st(a),i}}),_r=mr({blockSize:64,nonceLength:12,tagLength:16,withAAD:!0},as(is));var _e=class{constructor(t,n){O(this,"oHash");O(this,"iHash");O(this,"blockLen");O(this,"outputLen");O(this,"canXOF",!1);O(this,"finished",!1);O(this,"destroyed",!1);if(vt(t),z(n,void 0,"key"),this.iHash=t.create(),typeof this.iHash.update!="function")throw new Error("expected Hash instance");this.blockLen=this.iHash.blockLen,this.outputLen=this.iHash.outputLen;let o=this.blockLen,r=new Uint8Array(o);r.set(n.length>o?t.create().update(n).digest():n);for(let s=0;s<r.length;s++)r[s]^=54;this.iHash.update(r),this.oHash=t.create();for(let s=0;s<r.length;s++)r[s]^=106;this.oHash.update(r),J(r)}update(t){return dt(this),this.iHash.update(t),this}digestInto(t){dt(this),Ut(t,this),this.finished=!0;let n=t.subarray(0,this.outputLen);this.iHash.digestInto(n),this.oHash.update(n),this.oHash.digestInto(n),this.destroy()}digest(){let t=new Uint8Array(this.oHash.outputLen);return this.digestInto(t),t}_cloneInto(t){t||(t=Object.create(Object.getPrototypeOf(this),{}));let{oHash:n,iHash:o,finished:r,destroyed:s,blockLen:i,outputLen:c,canXOF:f}=this;return t=t,t.finished=r,t.destroyed=s,t.blockLen=i,t.outputLen=c,t.canXOF=f,t.oHash=n._cloneInto(t.oHash),t.iHash=o._cloneInto(t.iHash),t}clone(){return this._cloneInto()}destroy(){this.destroyed=!0,this.oHash.destroy(),this.iHash.destroy()}},tn=(()=>{let e=((t,n,o)=>new _e(t,n).update(o).digest());return e.create=(t,n)=>new _e(t,n),e})();var te=Uint8Array.of(0),us=Uint8Array.of();function ds(e,t,n,o=32,r){vt(e),Z(o,"length"),z(t,void 0,"prk");let s=e.outputLen;if(t.length<s)throw new Error('"prk" must be at least HashLen octets');if(o>255*s)throw new Error("Length must be <= 255*HashLen");let i=Math.ceil(o/s);if(n===void 0?n=us:z(n,void 0,"info"),!i)return r&&J(t),new Uint8Array;let c=r&&i===1?t:new Uint8Array(i*s),{iHash:f,oHash:a}=tn.create(e,t),u=r?t:new Uint8Array(s),l=i>1?r?.iHash||e.create():void 0;for(let g=0;g<i-1;g++){te[0]=g+1;let b=f._cloneInto(l);g&&b.update(u),b.update(n).update(te).digestInto(u),a._cloneInto(l).update(u).digestInto(u),c.set(u,s*g)}if(te[0]=i,i>1&&f.update(u),f.update(n).update(te).digestInto(u),a.update(u).digestInto(u),c.set(u,s*(i-1)),f.destroy(),a.destroy(),l?.destroy(),u!==c&&J(u),J(te),o===c.length)return c;let p=c.slice(0,o);return J(c),p}var Rr=(e,t,n,o,r)=>{vt(e),n===void 0&&(n=new Uint8Array(e.outputLen));let s=tn.create(e,n).update(t);return ds(e,s.digest(),o,r,s)};globalThis.BlueCrypto=Object.freeze({ml_kem768:Zn,x25519:hr,chacha20poly1305:_r,hkdf:Rr,sha256:Vn,randomBytes:kt});})();
+/*! Bundled license information:
+
+@noble/curves/utils.js:
+@noble/curves/abstract/modular.js:
+@noble/curves/abstract/curve.js:
+@noble/curves/abstract/edwards.js:
+@noble/curves/abstract/montgomery.js:
+@noble/curves/ed25519.js:
+  (*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) *)
+
+@noble/post-quantum/utils.js:
+@noble/post-quantum/_crystals.js:
+@noble/post-quantum/ml-kem.js:
+  (*! noble-post-quantum - MIT License (c) 2024 Paul Miller (paulmillr.com) *)
+
+@noble/ciphers/utils.js:
+  (*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) *)
+
+@noble/hashes:
+  (*! noble-hashes - MIT License (c) 2022 Paul Miller (paulmillr.com) *)
+*/
+    </script>
+    <script>
+      (() => {
+        "use strict";
+
+        const DEFAULT_COLOR = "#4a90e2";
+        const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+        const HEALTH_INTERVAL = 1000;
+        const RECONNECT_DELAY = 1200;
+        const TYPING_IDLE = 1200;
+        const TYPING_REFRESH = 1000;
+        const TYPING_EXPIRY = 4000;
+        const FEED_LIMIT = 1000;
+        const STICK_DISTANCE = 80;
+        const READ_DELAY = 400;
+        const READ_SHARE = 0.6;
+        const INPUT_MIN_HEIGHT = 44;
+        const PROTOCOL_VERSION = 1;
+        const KEX_NONCE_BYTES = 32;
+        const MLKEM_EK_BYTES = 1184;
+        const PAD_BLOCK = 256;
+        const crypto = window.BlueCrypto;
+        const encoder = new TextEncoder();
+        const decoder = new TextDecoder("utf-8", { fatal: true });
+        const KEX_LABEL = encoder.encode("BlueChat key exchange v1");
+        const KEY_INFO = encoder.encode("BlueChat session keys v1");
+        const AAD_CLIENT = encoder.encode("BlueChat client to server v1");
+        const AAD_SERVER = encoder.encode("BlueChat server to client v1");
+        const ZOOM_KEYS = new Set(["+", "=", "-", "_", "0"]);
+        const KIND_CLASSES = {
+          kick: "alert",
+          ban: "alert",
+          shutdown: "alert",
+          away: "idle",
+          timeout: "idle",
+          back: "back",
+        };
+
+        const storage = {
+          get(key) {
+            try {
+              return window.localStorage.getItem(key);
+            } catch {
+              return null;
+            }
+          },
+          set(key, value) {
+            try {
+              window.localStorage.setItem(key, value);
+            } catch {}
+          },
+        };
+
+        const els = {
+          app: document.getElementById("app"),
+          name: document.getElementById("name"),
+          color: document.getElementById("color"),
+          apply: document.getElementById("apply-name"),
+          userList: document.getElementById("user-list"),
+          feed: document.getElementById("feed"),
+          input: document.getElementById("input"),
+          send: document.getElementById("send"),
+          status: document.getElementById("status"),
+          typingbar: document.getElementById("typingbar"),
+          toggleContacts: document.getElementById("toggle-contacts"),
+          toggleContactsMain: document.getElementById("toggle-contacts-main"),
+          version: document.getElementById("version"),
+          security: document.getElementById("security"),
+          icon: document.getElementById("icon"),
+        };
+
+        const state = {
+          uid: loadUid(),
+          selfId: null,
+          users: new Map(),
+          typing: new Map(),
+          seenEvents: new Set(),
+          ws: null,
+          cfg: null,
+          healthOk: false,
+          healthBusy: false,
+          connecting: false,
+          settled: false,
+          pinned: true,
+          reconnectTimer: null,
+          typingSent: 0,
+          typingTimer: null,
+          reads: new Map(),
+          ownMessages: new Map(),
+          visibleSeqs: new Set(),
+          readSent: 0,
+          readTimer: null,
+          readObserver: null,
+          channel: null,
+        };
+
+        function loadUid() {
+          const saved = storage.get("uid");
+          if (saved && /^[\w-]{8,64}$/.test(saved)) {
+            return saved;
+          }
+          let fresh;
+          if (window.crypto && typeof window.crypto.randomUUID === "function") {
+            fresh = window.crypto.randomUUID();
+          } else if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+            fresh = Array.from(window.crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+              byte.toString(16).padStart(2, "0"),
+            ).join("");
+          } else {
+            fresh = `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
+          }
+          storage.set("uid", fresh);
+          return fresh;
+        }
+
+        function safeColor(value) {
+          return typeof value === "string" && HEX_COLOR.test(value) ? value : DEFAULT_COLOR;
+        }
+
+        function concatBytes(...parts) {
+          const total = parts.reduce((sum, part) => sum + part.length, 0);
+          const joined = new Uint8Array(total);
+          let offset = 0;
+          for (const part of parts) {
+            joined.set(part, offset);
+            offset += part.length;
+          }
+          return joined;
+        }
+
+        function toBase64(bytes) {
+          let text = "";
+          for (const byte of bytes) {
+            text += String.fromCharCode(byte);
+          }
+          return btoa(text);
+        }
+
+        function fromBase64(value, size) {
+          if (typeof value !== "string") {
+            throw new Error("missing key exchange field");
+          }
+          const text = atob(value);
+          if (text.length !== size) {
+            throw new Error("key exchange field has the wrong length");
+          }
+          return Uint8Array.from(text, (character) => character.charCodeAt(0));
+        }
+
+        function counterBytes(counter) {
+          const bytes = new Uint8Array(8);
+          const view = new DataView(bytes.buffer);
+          view.setUint32(0, Math.floor(counter / 4294967296));
+          view.setUint32(4, counter >>> 0);
+          return bytes;
+        }
+
+        function readCounter(bytes) {
+          const view = new DataView(bytes.buffer, bytes.byteOffset, 8);
+          return view.getUint32(0) * 4294967296 + view.getUint32(4);
+        }
+
+        function securityCode(material) {
+          let number = 0n;
+          for (const byte of material) {
+            number = (number << 8n) | BigInt(byte);
+          }
+          const digits = String(number % 100000000n).padStart(8, "0");
+          return `${digits.slice(0, 4)} ${digits.slice(4)}`;
+        }
+
+        function startChannel(offer) {
+          if (!offer || offer.type !== "kex" || offer.v !== PROTOCOL_VERSION) {
+            throw new Error("unexpected key exchange");
+          }
+          const serverDh = fromBase64(offer.x25519, 32);
+          const serverKem = fromBase64(offer.mlkem, MLKEM_EK_BYTES);
+          const serverNonce = fromBase64(offer.nonce, KEX_NONCE_BYTES);
+
+          const secretKey = crypto.x25519.utils.randomSecretKey();
+          const publicKey = crypto.x25519.getPublicKey(secretKey);
+          const dh = crypto.x25519.getSharedSecret(secretKey, serverDh);
+          if (dh.every((byte) => byte === 0)) {
+            throw new Error("weak key exchange");
+          }
+          const { cipherText, sharedSecret } = crypto.ml_kem768.encapsulate(serverKem);
+          const nonce = crypto.randomBytes(KEX_NONCE_BYTES);
+          const transcript = crypto.sha256(
+            concatBytes(KEX_LABEL, serverDh, serverKem, serverNonce, publicKey, cipherText, nonce),
+          );
+          const material = crypto.hkdf(crypto.sha256, concatBytes(sharedSecret, dh), transcript, KEY_INFO, 72);
+
+          return {
+            channel: {
+              txKey: material.slice(0, 32),
+              rxKey: material.slice(32, 64),
+              tx: 0,
+              rx: 0,
+              code: securityCode(material.slice(64, 72)),
+            },
+            reply: {
+              type: "kex",
+              v: PROTOCOL_VERSION,
+              x25519: toBase64(publicKey),
+              mlkem: toBase64(cipherText),
+              nonce: toBase64(nonce),
+            },
+          };
+        }
+
+        function seal(channel, payload) {
+          const json = encoder.encode(JSON.stringify(payload));
+          const padded = new Uint8Array(json.length + ((PAD_BLOCK - (json.length % PAD_BLOCK)) % PAD_BLOCK)).fill(32);
+          padded.set(json);
+          const header = counterBytes(channel.tx);
+          channel.tx += 1;
+          const sealed = crypto
+            .chacha20poly1305(channel.txKey, concatBytes(new Uint8Array(4), header), AAD_CLIENT)
+            .encrypt(padded);
+          return concatBytes(header, sealed);
+        }
+
+        function unseal(channel, buffer) {
+          const bytes = new Uint8Array(buffer);
+          if (bytes.length < 24) {
+            throw new Error("message is too short");
+          }
+          const header = bytes.slice(0, 8);
+          if (readCounter(header) !== channel.rx) {
+            throw new Error("message is out of order or replayed");
+          }
+          const plain = crypto
+            .chacha20poly1305(channel.rxKey, concatBytes(new Uint8Array(4), header), AAD_SERVER)
+            .decrypt(bytes.slice(8));
+          channel.rx += 1;
+          return JSON.parse(decoder.decode(plain));
+        }
+
+        function socketOpen() {
+          return state.ws !== null && state.ws.readyState === WebSocket.OPEN && state.channel !== null;
+        }
+
+        function send(payload) {
+          if (!socketOpen()) {
+            return false;
+          }
+          try {
+            state.ws.send(seal(state.channel, payload));
+            return true;
+          } catch {
+            return false;
+          }
+        }
+
+        function updateStatus() {
+          const connected = state.healthOk && socketOpen();
+          if (connected) {
+            state.settled = true;
+          }
+          const checking = !state.settled && state.healthOk;
+          els.status.textContent = connected ? "Connected" : checking ? "Checking…" : "Disconnected";
+          els.status.classList.toggle("connected", connected);
+          els.status.classList.toggle("disconnected", !connected && !checking);
+        }
+
+        function eventKey(event) {
+          if (!event.ts) {
+            return null;
+          }
+          return [event.type, event.ts, event.user_id || "", event.kind || "", event.msg || event.text || ""].join(
+            "\u0000",
+          );
+        }
+
+        function timeLabel(stamp) {
+          const date = new Date(stamp || Date.now());
+          return Number.isNaN(date.getTime()) ? new Date() : date;
+        }
+
+        function buildSystemRow(event) {
+          const note = document.createElement("div");
+          const kindClass = KIND_CLASSES[event.kind];
+          note.className = kindClass ? `sys ${kindClass}` : "sys";
+
+          const time = document.createElement("span");
+          time.className = "sys-time";
+          time.textContent = `${timeLabel(event.ts).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          })} · `;
+          const text = document.createElement("span");
+          text.className = "sys-text";
+          text.textContent = event.msg || "system";
+          note.append(time, text);
+
+          if (typeof event.color === "string" && HEX_COLOR.test(event.color)) {
+            const swatch = document.createElement("span");
+            swatch.className = "swatch";
+            swatch.style.background = event.color;
+            swatch.title = event.color;
+            text.append(swatch);
+          }
+          return note;
+        }
+
+        function buildMessage(event, mine) {
+          const bubble = document.createElement("div");
+          bubble.className = mine ? "msg mine" : "msg";
+
+          const name = document.createElement("div");
+          name.className = "name";
+          name.textContent = event.username || "Guest";
+          name.style.color = safeColor(event.color);
+
+          const text = document.createElement("div");
+          text.textContent = event.text || "";
+
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          const time = document.createElement("span");
+          time.textContent = timeLabel(event.ts).toLocaleString();
+          meta.append(time);
+
+          if (mine && Number.isInteger(event.seq)) {
+            const receipt = document.createElement("span");
+            receipt.className = "receipt";
+            meta.append(receipt);
+            state.ownMessages.set(event.seq, receipt);
+          }
+
+          bubble.append(name, text, meta);
+          return bubble;
+        }
+
+        function nameOf(id) {
+          return state.users.get(id)?.username || state.reads.get(id)?.username || "Guest";
+        }
+
+        function describeReaders(readers, everyone) {
+          if (readers.length === 0) {
+            return "Sent";
+          }
+          if (everyone && readers.length > 2) {
+            return "Seen by everyone";
+          }
+          const names = readers.map(nameOf);
+          if (names.length === 1) {
+            return `Seen by ${names[0]}`;
+          }
+          if (names.length === 2) {
+            return `Seen by ${names[0]} and ${names[1]}`;
+          }
+          const others = names.length - 2;
+          return `Seen by ${names[0]}, ${names[1]} and ${others} other${others === 1 ? "" : "s"}`;
+        }
+
+        function updateReceipts() {
+          const online = Array.from(state.users.keys()).filter((id) => id !== state.selfId);
+          const seqs = Array.from(state.ownMessages.keys()).sort((a, b) => a - b);
+          const latest = seqs[seqs.length - 1];
+
+          for (const seq of seqs) {
+            const receipt = state.ownMessages.get(seq);
+            if (!receipt.isConnected) {
+              state.ownMessages.delete(seq);
+              continue;
+            }
+            const readers = [];
+            for (const [id, position] of state.reads) {
+              if (id !== state.selfId && position.seq >= seq) {
+                readers.push(id);
+              }
+            }
+            readers.sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+            const everyone = online.length > 0 && online.every((id) => readers.includes(id));
+            receipt.classList.toggle("seen", readers.length > 0 && !everyone);
+            receipt.classList.toggle("all", everyone);
+            const ticks = readers.length > 0 ? "✓✓" : "✓";
+            receipt.textContent = seq === latest ? `${ticks} ${describeReaders(readers, everyone)}` : ticks;
+            receipt.title = describeReaders(readers, everyone);
+          }
+        }
+
+        function watchForReading(row, seq) {
+          row.dataset.seq = String(seq);
+          if (state.readObserver) {
+            state.readObserver.observe(row);
+          } else {
+            state.visibleSeqs.add(seq);
+            scheduleRead();
+          }
+        }
+
+        function scheduleRead() {
+          if (state.readTimer !== null || document.visibilityState !== "visible") {
+            return;
+          }
+          state.readTimer = setTimeout(() => {
+            state.readTimer = null;
+            if (document.visibilityState !== "visible" || state.visibleSeqs.size === 0) {
+              return;
+            }
+            const newest = Math.max(...state.visibleSeqs);
+            if (newest > state.readSent && send({ type: "read", user_id: state.uid, seq: newest })) {
+              state.readSent = newest;
+            }
+          }, READ_DELAY);
+        }
+
+        function createReadObserver() {
+          if (typeof IntersectionObserver !== "function") {
+            return null;
+          }
+          return new IntersectionObserver(
+            (entries) => {
+              for (const entry of entries) {
+                const seq = Number(entry.target.dataset.seq);
+                const rootHeight = entry.rootBounds ? entry.rootBounds.height : window.innerHeight;
+                const needed = Math.min(entry.boundingClientRect.height, rootHeight) * READ_SHARE;
+                if (entry.isIntersecting && entry.intersectionRect.height >= needed) {
+                  state.visibleSeqs.add(seq);
+                } else {
+                  state.visibleSeqs.delete(seq);
+                }
+              }
+              scheduleRead();
+            },
+            { root: els.feed, threshold: [0, 0.25, 0.5, 0.6, 0.75, 1] },
+          );
+        }
+
+        function addMessage(event) {
+          const key = eventKey(event);
+          if (key !== null) {
+            if (state.seenEvents.has(key)) {
+              return;
+            }
+            state.seenEvents.add(key);
+          }
+
+          const feed = els.feed;
+          const mine = event.type !== "system" && state.selfId !== null && event.user_id === state.selfId;
+
+          const row = document.createElement("div");
+          row.className = mine ? "row mine" : "row";
+          row.append(event.type === "system" ? buildSystemRow(event) : buildMessage(event, mine));
+          feed.append(row);
+
+          if (event.type === "message") {
+            if (state.typing.delete(event.user_id)) {
+              renderPeople();
+            }
+            if (!mine && Number.isInteger(event.seq)) {
+              watchForReading(row, event.seq);
+            }
+            if (mine) {
+              updateReceipts();
+            }
+          }
+
+          while (feed.childElementCount > FEED_LIMIT) {
+            const oldest = feed.firstElementChild;
+            if (state.readObserver) {
+              state.readObserver.unobserve(oldest);
+            }
+            oldest.remove();
+          }
+          if (state.seenEvents.size > FEED_LIMIT * 4) {
+            state.seenEvents = new Set(Array.from(state.seenEvents).slice(-FEED_LIMIT * 2));
+          }
+          if (state.pinned || mine) {
+            pinFeed();
+          }
+        }
+
+        function pinFeed() {
+          els.feed.scrollTop = els.feed.scrollHeight;
+          state.pinned = true;
+        }
+
+        function watchFeed() {
+          els.feed.addEventListener(
+            "scroll",
+            () => {
+              const feed = els.feed;
+              state.pinned = feed.scrollHeight - feed.scrollTop - feed.clientHeight <= STICK_DISTANCE;
+            },
+            { passive: true },
+          );
+          if (typeof ResizeObserver === "function") {
+            new ResizeObserver(() => {
+              if (state.pinned) {
+                pinFeed();
+              }
+            }).observe(els.feed);
+            let inputWidth = 0;
+            new ResizeObserver((entries) => {
+              const width = Math.round(entries[0].contentRect.width);
+              if (width !== inputWidth) {
+                inputWidth = width;
+                fitInput();
+              }
+            }).observe(els.input);
+          }
+        }
+
+        function renderUsers() {
+          const entries = Array.from(state.users.entries()).sort((a, b) =>
+            (a[1].username || "").localeCompare(b[1].username || ""),
+          );
+          const fragment = document.createDocumentFragment();
+
+          for (const [id, user] of entries) {
+            const person = document.createElement("div");
+            person.className = "person";
+
+            const dot = document.createElement("div");
+            dot.className = "dot online";
+
+            const chip = document.createElement("div");
+            chip.className = "chip";
+            chip.style.background = safeColor(user.color);
+
+            const name = document.createElement("div");
+            name.className = "person-name";
+            name.textContent = user.username || "Guest";
+
+            const typing = document.createElement("div");
+            typing.className = "typing";
+            typing.textContent = state.typing.has(id) ? "typing…" : "";
+
+            person.append(dot, chip, name, typing);
+            fragment.append(person);
+          }
+
+          els.userList.replaceChildren(fragment);
+        }
+
+        function expireTyping() {
+          const now = Date.now();
+          let changed = false;
+          for (const [id, expires] of state.typing) {
+            if (expires <= now) {
+              state.typing.delete(id);
+              changed = true;
+            }
+          }
+          return changed;
+        }
+
+        function renderTyping() {
+          expireTyping();
+          const names = Array.from(state.typing.keys())
+            .filter((id) => id !== state.selfId)
+            .map((id) => state.users.get(id)?.username)
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b));
+
+          if (names.length === 0) {
+            els.typingbar.replaceChildren();
+            return;
+          }
+          let label;
+          if (names.length === 1) {
+            label = `${names[0]} is typing`;
+          } else if (names.length === 2) {
+            label = `${names[0]} and ${names[1]} are typing`;
+          } else {
+            const others = names.length - 2;
+            label = `${names[0]}, ${names[1]} and ${others} other${others === 1 ? "" : "s"} are typing`;
+          }
+          const text = document.createElement("span");
+          text.textContent = label;
+          const dots = document.createElement("span");
+          dots.className = "dots";
+          dots.setAttribute("aria-hidden", "true");
+          dots.append(document.createElement("span"), document.createElement("span"), document.createElement("span"));
+          els.typingbar.replaceChildren(text, dots);
+        }
+
+        function renderPeople() {
+          renderTyping();
+          renderUsers();
+        }
+
+        function handleEvent(event) {
+          switch (event.type) {
+            case "welcome":
+              if (typeof event.user_id === "string") {
+                state.selfId = event.user_id;
+              }
+              break;
+            case "message":
+            case "system":
+              addMessage(event);
+              break;
+            case "presence":
+              if (event.event === "online") {
+                if (!state.users.has(event.user_id)) {
+                  state.users.set(event.user_id, { username: event.username, color: event.color });
+                }
+              } else if (event.event === "offline") {
+                state.users.delete(event.user_id);
+                state.typing.delete(event.user_id);
+              }
+              renderPeople();
+              updateReceipts();
+              break;
+            case "typing":
+              if (event.typing) {
+                state.typing.set(event.user_id, Date.now() + TYPING_EXPIRY);
+              } else {
+                state.typing.delete(event.user_id);
+              }
+              renderPeople();
+              break;
+            case "identity":
+              state.users.set(event.user_id, { username: event.username, color: event.color });
+              renderPeople();
+              updateReceipts();
+              break;
+            case "read":
+              if (typeof event.user_id === "string" && Number.isInteger(event.seq)) {
+                const previous = state.reads.get(event.user_id);
+                if (!previous || previous.seq < event.seq) {
+                  state.reads.set(event.user_id, { seq: event.seq, username: event.username });
+                  updateReceipts();
+                }
+              }
+              break;
+            default:
+              break;
+          }
+        }
+
+        function hideContacts() {
+          els.app.classList.add("hide-contacts");
+          fitInput();
+        }
+
+        function showContacts() {
+          els.app.classList.remove("hide-contacts");
+          fitInput();
+        }
+
+        function currentName() {
+          return els.name.value.trim() || "Guest";
+        }
+
+        function saveIdentity() {
+          storage.set("name", els.name.value.trim());
+          storage.set("color", els.color.value);
+        }
+
+        function applyIdentity() {
+          saveIdentity();
+          send({ type: "hello", user_id: state.uid, username: currentName(), color: els.color.value });
+        }
+
+        function stopTyping() {
+          clearTimeout(state.typingTimer);
+          state.typingTimer = null;
+          if (state.typingSent) {
+            state.typingSent = 0;
+            send({ type: "typing", user_id: state.uid, typing: false });
+          }
+        }
+
+        function noteTyping() {
+          if (!socketOpen()) {
+            return;
+          }
+          const now = Date.now();
+          if (now - state.typingSent >= TYPING_REFRESH) {
+            if (send({ type: "typing", user_id: state.uid, typing: true })) {
+              state.typingSent = now;
+            }
+          }
+          clearTimeout(state.typingTimer);
+          state.typingTimer = setTimeout(stopTyping, TYPING_IDLE);
+        }
+
+        function sendMessage() {
+          const text = els.input.value.trim();
+          if (!text || !send({ type: "message", user_id: state.uid, text })) {
+            return;
+          }
+          stopTyping();
+          els.input.value = "";
+          fitInput();
+          els.input.blur();
+          try {
+            document.activeElement?.blur();
+          } catch {}
+        }
+
+        function sendAway(away) {
+          send({ type: "away", user_id: state.uid, away });
+        }
+
+        function fitInput() {
+          const field = els.input;
+          if (field.value === "") {
+            field.style.height = `${INPUT_MIN_HEIGHT}px`;
+            field.style.overflowY = "hidden";
+            return;
+          }
+          const style = getComputedStyle(field);
+          const border = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+          const max = parseFloat(style.maxHeight) || 132;
+          field.style.height = "auto";
+          const needed = field.scrollHeight + border;
+          field.style.height = `${Math.min(needed, max)}px`;
+          field.style.overflowY = needed > max ? "auto" : "hidden";
+        }
+
+        async function fetchConfig() {
+          const response = await fetch("/config", { cache: "no-store" });
+          if (!response.ok) {
+            throw new Error(`config ${response.status}`);
+          }
+          const config = await response.json();
+          if (!Number.isInteger(config.web_port)) {
+            throw new Error("config without port");
+          }
+          state.cfg = config;
+          els.version.textContent = config.version ? `v${config.version}` : "";
+        }
+
+        function socketUrl() {
+          const secure = window.location.protocol === "https:";
+          const host = window.location.host || `127.0.0.1:${state.cfg.web_port}`;
+          return `${secure ? "wss" : "ws"}://${host}/ws?uid=${encodeURIComponent(state.uid)}`;
+        }
+
+        function scheduleReconnect() {
+          if (state.reconnectTimer === null) {
+            state.reconnectTimer = setTimeout(() => {
+              state.reconnectTimer = null;
+              connect();
+            }, RECONNECT_DELAY);
+          }
+        }
+
+        async function connect() {
+          if (state.connecting || (state.ws !== null && state.ws.readyState <= WebSocket.OPEN)) {
+            return;
+          }
+          state.connecting = true;
+          try {
+            await fetchConfig();
+          } catch {
+            state.connecting = false;
+            scheduleReconnect();
+            return;
+          }
+
+          let socket;
+          try {
+            socket = new WebSocket(socketUrl());
+          } catch {
+            state.connecting = false;
+            scheduleReconnect();
+            return;
+          }
+          socket.binaryType = "arraybuffer";
+          state.ws = socket;
+          state.channel = null;
+          state.connecting = false;
+
+          const secured = () => {
+            state.users.clear();
+            state.typing.clear();
+            state.reads.clear();
+            state.readSent = 0;
+            renderPeople();
+            updateStatus();
+            applyIdentity();
+            if (document.visibilityState === "hidden") {
+              sendAway(true);
+            }
+          };
+
+          socket.onmessage = (message) => {
+            if (state.ws !== socket) {
+              return;
+            }
+            if (typeof message.data === "string") {
+              if (state.channel !== null) {
+                socket.close();
+                return;
+              }
+              try {
+                const { channel, reply } = startChannel(JSON.parse(message.data));
+                socket.send(JSON.stringify(reply));
+                state.channel = channel;
+              } catch {
+                socket.close();
+                return;
+              }
+              els.security.textContent = `Encrypted · ${state.channel.code}`;
+              secured();
+              return;
+            }
+            if (state.channel === null) {
+              socket.close();
+              return;
+            }
+            let event;
+            try {
+              event = unseal(state.channel, message.data);
+            } catch {
+              socket.close();
+              return;
+            }
+            if (event && typeof event === "object") {
+              handleEvent(event);
+            }
+          };
+
+          socket.onclose = () => {
+            if (state.ws !== socket) {
+              return;
+            }
+            state.channel = null;
+            els.security.textContent = "";
+            state.settled = true;
+            state.typingSent = 0;
+            updateStatus();
+            scheduleReconnect();
+          };
+
+          socket.onerror = () => {
+            try {
+              socket.close();
+            } catch {}
+          };
+        }
+
+        async function pollHealth() {
+          if (state.healthBusy) {
+            return;
+          }
+          state.healthBusy = true;
+          try {
+            const response = await fetch("/health", { cache: "no-store" });
+            state.healthOk = response.ok;
+          } catch {
+            state.healthOk = false;
+          } finally {
+            state.healthBusy = false;
+          }
+          updateStatus();
+          if (state.healthOk && els.icon.complete && els.icon.naturalWidth === 0) {
+            els.icon.src = `/icon.svg?retry=${Date.now()}`;
+          }
+          if (state.healthOk && (state.ws === null || state.ws.readyState > WebSocket.OPEN)) {
+            connect();
+          }
+          if (expireTyping()) {
+            renderPeople();
+          }
+        }
+
+        function sizeApp() {
+          const viewport = window.visualViewport;
+          const width = viewport ? viewport.width : window.innerWidth;
+          const height = viewport ? viewport.height : window.innerHeight;
+          const top = viewport ? viewport.offsetTop : 0;
+          const left = viewport ? viewport.offsetLeft : 0;
+          const appWidth = Math.floor(width * 0.95);
+          const gap = Math.round(height * 0.025);
+          const appHeight = Math.max(0, Math.floor(height - gap * 2));
+          els.app.style.width = `${appWidth}px`;
+          els.app.style.height = `${appHeight}px`;
+          els.app.style.left = `${Math.round(left + (width - appWidth) / 2)}px`;
+          els.app.style.top = `${Math.round(top + gap)}px`;
+          if (window.scrollY || window.scrollX) {
+            window.scrollTo(0, 0);
+          }
+        }
+
+        function blockZoom() {
+          const block = (event) => {
+            if (event.cancelable) {
+              event.preventDefault();
+            }
+          };
+          for (const type of ["gesturestart", "gesturechange", "gestureend"]) {
+            document.addEventListener(type, block, { passive: false });
+          }
+          document.addEventListener(
+            "touchmove",
+            (event) => {
+              if (event.touches.length > 1 || (typeof event.scale === "number" && event.scale !== 1)) {
+                block(event);
+              }
+            },
+            { passive: false },
+          );
+          window.addEventListener(
+            "wheel",
+            (event) => {
+              if (event.ctrlKey || event.metaKey) {
+                block(event);
+              }
+            },
+            { passive: false },
+          );
+          window.addEventListener("keydown", (event) => {
+            if ((event.ctrlKey || event.metaKey) && ZOOM_KEYS.has(event.key)) {
+              block(event);
+            }
+          });
+        }
+
+        function wireEvents() {
+          els.toggleContacts.addEventListener("click", hideContacts);
+          els.toggleContactsMain.addEventListener("click", showContacts);
+
+          els.apply.addEventListener("click", () => {
+            applyIdentity();
+            hideContacts();
+          });
+          els.name.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && !event.isComposing) {
+              event.preventDefault();
+              applyIdentity();
+              hideContacts();
+            }
+          });
+
+          els.send.addEventListener("click", sendMessage);
+          els.input.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
+              event.preventDefault();
+              sendMessage();
+            }
+          });
+          els.input.addEventListener("input", () => {
+            fitInput();
+            if (els.input.value.trim()) {
+              noteTyping();
+            } else {
+              stopTyping();
+            }
+          });
+
+          document.addEventListener("visibilitychange", () => {
+            const hidden = document.visibilityState === "hidden";
+            sendAway(hidden);
+            if (hidden) {
+              stopTyping();
+            } else {
+              pollHealth();
+              scheduleRead();
+            }
+          });
+          window.addEventListener("pagehide", () => sendAway(true));
+          window.addEventListener("pageshow", (event) => {
+            if (event.persisted) {
+              sendAway(false);
+              pollHealth();
+              scheduleRead();
+            }
+          });
+
+          window.addEventListener(
+            "resize",
+            () => {
+              sizeApp();
+              fitInput();
+              if (state.pinned) {
+                pinFeed();
+              }
+            },
+            { passive: true },
+          );
+          if (window.visualViewport) {
+            window.visualViewport.addEventListener("resize", sizeApp);
+            window.visualViewport.addEventListener("scroll", sizeApp);
+          }
+          document.addEventListener("focusin", sizeApp);
+          document.addEventListener("focusout", () => {
+            sizeApp();
+            setTimeout(sizeApp, 300);
+          });
+        }
+
+        function start() {
+          els.name.value = storage.get("name") || "";
+          els.color.value = safeColor(storage.get("color"));
+          state.readObserver = createReadObserver();
+          blockZoom();
+          watchFeed();
+          wireEvents();
+          sizeApp();
+          fitInput();
+          pollHealth();
+          setInterval(pollHealth, HEALTH_INTERVAL);
+        }
+
+        start();
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>Blue Chat Server</title>
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6db3ff"/>
+      <stop offset="1" stop-color="#2f6fd6"/>
+    </linearGradient>
+    <linearGradient id="horn" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#c9d6ee"/>
+    </linearGradient>
+  </defs>
+  <path d="M34 36 L26 8 L50 28 Z" fill="url(#horn)" stroke="#123a7a" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M94 36 L102 8 L78 28 Z" fill="url(#horn)" stroke="#123a7a" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M10 70 C10 38 34 22 64 22 C94 22 118 38 118 70 L118 104 C118 108 115 110 112 107 L104 100 L96 110 L88 100 L80 110 L72 100 L64 110 L56 100 L48 110 L40 100 L32 110 L24 100 L16 107 C13 110 10 108 10 104 Z" fill="url(#body)" stroke="#123a7a" stroke-width="4" stroke-linejoin="round"/>
+  <ellipse cx="64" cy="34" rx="30" ry="7" fill="#ffffff" opacity="0.18"/>
+  <circle cx="64" cy="56" r="21" fill="#ffffff" stroke="#123a7a" stroke-width="4"/>
+  <circle cx="68" cy="58" r="10" fill="#0f1115"/>
+  <circle cx="72" cy="54" r="3.5" fill="#ffffff"/>
+  <path d="M38 82 C46 96 82 96 90 82 Z" fill="#0f1115" stroke="#123a7a" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M48 85 L52 92 L56 86 Z" fill="#ffffff"/>
+  <path d="M72 86 L76 92 L80 85 Z" fill="#ffffff"/>
+  <ellipse cx="30" cy="74" rx="6" ry="4" fill="#ff8fb3" opacity="0.55"/>
+  <ellipse cx="98" cy="74" rx="6" ry="4" fill="#ff8fb3" opacity="0.55"/>
+</svg>
