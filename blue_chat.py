@@ -20,9 +20,9 @@ import struct
 import subprocess
 import sys
 import tempfile
-import unicodedata
 import threading
 import time
+import unicodedata
 import webbrowser
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -49,12 +49,18 @@ except ImportError:
 
 
 APP_NAME = "Blue Chat Server"
-APP_VERSION = "4.1.2"
+APP_VERSION = "4.3.1"
 APP_DESKTOP_ID = "bluechatserver"
 APP_CLASS = APP_DESKTOP_ID.capitalize()
 APP_DIR = Path(__file__).resolve().parent
 HTML_PATH = APP_DIR / "index.html"
 SETTINGS_PATH = APP_DIR / "blue_chat_settings.json"
+BANS_PATH = APP_DIR / "blue_chat_bans.json"
+ARP_PATH = Path("/proc/net/arp")
+ROUTE_PATH = Path("/proc/net/route")
+NEIGHBOUR_REFRESH = 5.0
+NEIGHBOUR_RETRY = 1.0
+EMPTY_MAC = "00:00:00:00:00:00"
 
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 WEB_PORT_RANGE = (8080, 8280)
@@ -101,6 +107,7 @@ DEFAULT_HOST_COLOR = "#f0ad4e"
 DEFAULT_HOST_NAME = "Admin"
 LEGACY_HOST_NAME = "Host"
 HEX_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
+MAC_ADDRESS = re.compile(r"[0-9a-f]{2}(?::[0-9a-f]{2}){5}")
 BIDI_CONTROLS = frozenset("\u061c\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
 LONG_HEX_COLOR = re.compile(r"#[0-9a-f]{12}")
 RGB_COLOR = re.compile(r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)")
@@ -172,10 +179,12 @@ KIND_STYLES = {
     "back": "system_back",
 }
 
+INLINE_SCRIPT = re.compile(rb"<script>(.*?)</script>", re.DOTALL)
+
 CONTENT_SECURITY_POLICY = "; ".join(
     [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline'",
+        "script-src 'self' {scripts}",
         "style-src 'self' 'unsafe-inline'",
         "connect-src 'self' ws:",
         "img-src 'self'",
@@ -323,12 +332,23 @@ def load_settings() -> dict:
         return normalize_settings({})
 
 
+def page_policy(page: bytes) -> str:
+    hashes = []
+    for script in INLINE_SCRIPT.findall(page):
+        normalised = script.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        digest = base64.b64encode(hashlib.sha256(normalised).digest()).decode("ascii")
+        hashes.append(f"'sha256-{digest}'")
+    return CONTENT_SECURITY_POLICY.format(scripts=" ".join(hashes) or "'none'")
+
+
 def atomic_write(path: Path, content: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, temp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}-", suffix=".tmp")
     try:
         with os.fdopen(handle, "wb") as stream:
             stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
         os.replace(temp_name, path)
     except BaseException:
         try:
@@ -487,6 +507,89 @@ def read_frame(client: Client) -> tuple[bool, int, bytes] | None:
     if payload is None:
         return None
     return fin, opcode, unmask(payload, mask)
+
+
+class NeighbourTable:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._macs: dict[str, str] = {}
+        self._gateway_mac: str | None = None
+        self._loaded_at = float("-inf")
+
+    @staticmethod
+    def _read_macs() -> dict[str, str]:
+        table: dict[str, str] = {}
+        try:
+            lines = ARP_PATH.read_text("ascii", "replace").splitlines()[1:]
+        except OSError:
+            return table
+        for line in lines:
+            parts = line.split()
+            if len(parts) >= 4:
+                mac = parts[3].lower()
+                if MAC_ADDRESS.fullmatch(mac) and mac != EMPTY_MAC:
+                    table[parts[0]] = mac
+        return table
+
+    @staticmethod
+    def _read_gateway() -> str | None:
+        try:
+            lines = ROUTE_PATH.read_text("ascii", "replace").splitlines()[1:]
+        except OSError:
+            return None
+        for line in lines:
+            parts = line.split()
+            if len(parts) >= 3 and parts[1] == "00000000":
+                try:
+                    return socket.inet_ntoa(struct.pack("<I", int(parts[2], 16)))
+                except (ValueError, struct.error, OSError):
+                    return None
+        return None
+
+    def mac_for(self, ip: str, fresh: bool = False) -> str | None:
+        with self._lock:
+            now = time.monotonic()
+            age = now - self._loaded_at
+            missing = ip not in self._macs and age >= NEIGHBOUR_RETRY
+            if fresh or missing or age >= NEIGHBOUR_REFRESH:
+                self._macs = self._read_macs()
+                gateway = self._read_gateway()
+                self._gateway_mac = self._macs.get(gateway) if gateway else None
+                self._loaded_at = now
+            mac = self._macs.get(ip)
+            if mac is None or mac == self._gateway_mac:
+                return None
+            return mac
+
+
+def load_bans() -> dict[str, dict]:
+    try:
+        raw = json.loads(BANS_PATH.read_text("utf-8"))
+    except (OSError, ValueError):
+        return {}
+    bans: dict[str, dict] = {}
+    for entry in raw if isinstance(raw, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        kind = entry.get("kind")
+        value = str(entry.get("value", "")).strip().lower()
+        if (kind == "mac" and MAC_ADDRESS.fullmatch(value)) or (kind == "ip" and is_ipv4(value)):
+            bans[f"{kind}:{value}"] = {
+                "kind": kind,
+                "value": value,
+                "name": clean_name(entry.get("name")) or "Guest",
+                "ip": str(entry.get("ip", "")) if is_ipv4(str(entry.get("ip", ""))) else "",
+                "since": clean_text(entry.get("since"), 40),
+            }
+    return bans
+
+
+def save_bans(bans: dict[str, dict]) -> bool:
+    try:
+        atomic_write(BANS_PATH, json.dumps(list(bans.values()), indent=2).encode("utf-8"))
+    except OSError:
+        return False
+    return True
 
 
 def wait_for_socket(conn: socket.socket, writable: bool, timeout: float) -> bool:
@@ -1148,7 +1251,7 @@ class HttpHandler(BaseHTTPRequestHandler):
                 body = b"index.html is missing. Put it in the same folder as blue_chat.py."
                 status = 500
                 chat.log("index.html was not found next to blue_chat.py", "error")
-            self._send(status, body, "text/html; charset=utf-8", include_body, page=True)
+            self._send(status, body, "text/html; charset=utf-8", include_body, policy=page_policy(body))
             if include_body and status == 200:
                 chat.log(f"Page opened by {client_ip}")
         elif path == "/config":
@@ -1177,7 +1280,7 @@ class HttpHandler(BaseHTTPRequestHandler):
         body: bytes,
         content_type: str,
         include_body: bool,
-        page: bool = False,
+        policy: str | None = None,
     ) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
@@ -1185,8 +1288,8 @@ class HttpHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         for name, value in SECURITY_HEADERS.items():
             self.send_header(name, value)
-        if page:
-            self.send_header("Content-Security-Policy", CONTENT_SECURITY_POLICY)
+        if policy:
+            self.send_header("Content-Security-Policy", policy)
         self.end_headers()
         if include_body:
             self.wfile.write(body)
@@ -1218,7 +1321,8 @@ class ChatServer:
         self._history_lock = threading.Lock()
         self._history: list[dict] = []
         self._ban_lock = threading.Lock()
-        self._banned: set[str] = set()
+        self._bans: dict[str, dict] = load_bans()
+        self.neighbours = NeighbourTable()
         self._count_lock = threading.Lock()
         self._message_count = 0
         self._notice_lock = threading.Lock()
@@ -1322,6 +1426,13 @@ class ChatServer:
             )
         if not self.html_path.exists():
             self.log(f"{self.html_path.name} was not found in {self.html_path.parent}", "warn")
+        with self._ban_lock:
+            ban_count = len(self._bans)
+        if ban_count:
+            self.log(
+                f"{ban_count} banned device{'s' if ban_count != 1 else ''} will stay blocked "
+                f"(saved in {BANS_PATH.name})"
+            )
         self.emit("state")
 
     def stop(self) -> None:
@@ -1978,25 +2089,74 @@ class ChatServer:
 
     def is_banned(self, ip: str) -> bool:
         with self._ban_lock:
-            return ip in self._banned
-
-    def banned(self) -> list[str]:
+            if not self._bans:
+                return False
+            if f"ip:{ip}" in self._bans:
+                return True
+            check_mac = any(entry["kind"] == "mac" for entry in self._bans.values())
+        if not check_mac:
+            return False
+        mac = self.neighbours.mac_for(ip)
+        if mac is None:
+            return False
         with self._ban_lock:
-            return sorted(self._banned)
+            return f"mac:{mac}" in self._bans
 
-    def ban_ip(self, ip: str) -> None:
+    def banned(self) -> list[tuple[str, str]]:
         with self._ban_lock:
-            self._banned.add(ip)
+            entries = sorted(self._bans.items(), key=lambda item: item[1]["since"])
+        return [(key, f"{entry['name']} · {entry['value']}") for key, entry in entries]
+
+    def ban(self, people: list[tuple[str, str]]) -> None:
+        added = []
+        for name, ip in people:
+            if not is_ipv4(ip):
+                continue
+            mac = self.neighbours.mac_for(ip, fresh=True)
+            kind, value = ("mac", mac) if mac else ("ip", ip)
+            entry = {
+                "kind": kind,
+                "value": value,
+                "name": clean_name(name) or "Guest",
+                "ip": ip,
+                "since": now_iso(),
+            }
+            with self._ban_lock:
+                self._bans[f"{kind}:{value}"] = entry
+            added.append(entry)
+
         with self._clients_lock:
-            ids = {client.id for client in self._clients.values() if client.ip == ip}
-        self.kick(ids, "ban")
-        self.log(f"Banned {ip} until the app closes", "warn")
+            remaining = list(self._clients.values())
+        blocked = {client.id for client in remaining if self.is_banned(client.ip)}
+        self.kick(blocked, "ban")
+
+        with self._ban_lock:
+            stored = save_bans(self._bans)
+        for entry in added:
+            if entry["kind"] == "mac":
+                self.log(
+                    f"Banned {entry['name']}'s device (hardware address {entry['value']}) until you unban it",
+                    "warn",
+                )
+            else:
+                self.log(
+                    f"Banned {entry['name']} by IP address {entry['value']} until you unban it "
+                    "(this device's hardware address isn't visible to the Pi)",
+                    "warn",
+                )
+        if not stored:
+            self.log(f"Could not save {BANS_PATH}, so bans will end when the app closes", "error")
         self.emit("clients")
 
-    def unban_ip(self, ip: str) -> None:
+    def unban(self, key: str) -> None:
         with self._ban_lock:
-            self._banned.discard(ip)
-        self.log(f"Unbanned {ip}")
+            entry = self._bans.pop(key, None)
+            stored = entry is None or save_bans(self._bans)
+        if entry is None:
+            return
+        self.log(f"Unbanned {entry['name']} ({entry['value']})")
+        if not stored:
+            self.log(f"Could not save {BANS_PATH}", "error")
         self.emit("clients")
 
     def clear_history(self) -> None:
@@ -2373,6 +2533,8 @@ NAMED_FONTS = (
 )
 TAB_TITLES = ("Chat", "Server log", "Settings")
 WHEEL_EVENTS = ("<MouseWheel>", "<Button-4>", "<Button-5>")
+SIDE_WHEEL_EVENTS = ("<Shift-MouseWheel>", "<Shift-Button-4>", "<Shift-Button-5>")
+SIDE_WHEEL_STEP = 40
 
 
 class App:
@@ -2385,6 +2547,7 @@ class App:
         self._closing = False
         self._picking_color = False
         self._picker: ColorPicker | None = None
+        self._ban_keys: list[str] = []
 
         root.title(APP_NAME)
         root.configure(bg=BG)
@@ -2522,17 +2685,18 @@ class App:
         style.configure("TLabelframe", background=PANEL, bordercolor=BORDER)
         style.configure("TLabelframe.Label", background=PANEL, foreground=MUTED, font=self.font_bold)
         style.configure("TPanedwindow", background=BG)
-        style.configure(
-            "Vertical.TScrollbar",
-            background=RAISED,
-            troughcolor=FIELD,
-            arrowcolor=MUTED,
-            bordercolor=FIELD,
-            lightcolor=RAISED,
-            darkcolor=RAISED,
-            gripcount=0,
-        )
-        style.map("Vertical.TScrollbar", background=[("active", HOVER)])
+        for scrollbar_style in ("Vertical.TScrollbar", "Horizontal.TScrollbar"):
+            style.configure(
+                scrollbar_style,
+                background=RAISED,
+                troughcolor=FIELD,
+                arrowcolor=MUTED,
+                bordercolor=FIELD,
+                lightcolor=RAISED,
+                darkcolor=RAISED,
+                gripcount=0,
+            )
+            style.map(scrollbar_style, background=[("active", HOVER)])
 
         self.root.option_add("*TCombobox*Listbox.background", FIELD)
         self.root.option_add("*TCombobox*Listbox.foreground", TEXT)
@@ -2718,33 +2882,46 @@ class App:
         for key, label, sample, stretch in columns:
             width = max(self.font_base.measure(sample), self.font_base.measure(label)) + 12
             self.tree.heading(key, text=label)
-            self.tree.column(key, width=width, minwidth=width if not stretch else 60, stretch=stretch)
+            self.tree.column(key, width=width, minwidth=width, stretch=stretch)
         tree_scroll = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=tree_scroll.set)
+        tree_side_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(
+            yscrollcommand=tree_scroll.set,
+            xscrollcommand=lambda first, last: self._fit_side_scroll(tree_side_scroll, first, last),
+        )
         self.tree.grid(row=0, column=0, sticky="nsew")
         tree_scroll.grid(row=0, column=1, sticky="ns")
+        tree_side_scroll.grid(row=1, column=0, sticky="ew")
+        tree_side_scroll.grid_remove()
         self.tree.bind("<Delete>", lambda _event: self.kick_selected())
+        for sequence in SIDE_WHEEL_EVENTS:
+            self.tree.bind(sequence, self._scroll_people_sideways)
 
         buttons = ttk.Frame(frame)
-        buttons.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        buttons.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         buttons.columnconfigure((0, 1), weight=1, uniform="people_actions")
         ttk.Button(buttons, text="Kick", command=self.kick_selected).grid(
             row=0, column=0, sticky="ew", padx=(0, 3)
         )
-        ttk.Button(buttons, text="Ban address", command=self.ban_selected).grid(
+        ttk.Button(buttons, text="Ban device", command=self.ban_selected).grid(
             row=0, column=1, sticky="ew", padx=(3, 0)
         )
 
-        ttk.Label(
+        hint = ttk.Label(
             frame,
-            text="Kicked people can rejoin straight away. Banning blocks their device until the app is closed.",
+            text=(
+                "Kicked people can rejoin straight away. Banned devices stay blocked, even after a restart, "
+                "until you unban them. Some phones can change their hardware address in their Wi-Fi settings."
+            ),
             style="Small.TLabel",
-            wraplength=320,
+            wraplength=200,
             justify="left",
-        ).grid(row=2, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        )
+        hint.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+        hint.bind("<Configure>", lambda event: hint.configure(wraplength=max(event.width - 10, 100)))
 
-        ttk.Label(frame, text="Banned addresses", style="Muted.TLabel").grid(
-            row=3, column=0, sticky="w", pady=(10, 2)
+        ttk.Label(frame, text="Banned devices", style="Muted.TLabel").grid(
+            row=4, column=0, sticky="w", pady=(10, 2)
         )
         self.ban_list = tk.Listbox(
             frame,
@@ -2760,11 +2937,26 @@ class App:
             selectmode="extended",
             activestyle="none",
         )
-        self.ban_list.grid(row=4, column=0, columnspan=2, sticky="ew")
+        self.ban_list.grid(row=5, column=0, columnspan=2, sticky="ew")
         ttk.Button(frame, text="Unban", command=self.unban_selected).grid(
-            row=5, column=0, columnspan=2, sticky="ew", pady=(6, 0)
+            row=6, column=0, columnspan=2, sticky="ew", pady=(6, 0)
         )
         return frame
+
+    def _scroll_people_sideways(self, event: tk.Event) -> str:
+        first, last = self.tree.xview()
+        if first > 0 or last < 1:
+            backwards = event.num == 4 or getattr(event, "delta", 0) > 0
+            self.tree.xview_scroll(-SIDE_WHEEL_STEP if backwards else SIDE_WHEEL_STEP, "units")
+        return "break"
+
+    @staticmethod
+    def _fit_side_scroll(scrollbar: ttk.Scrollbar, first: str, last: str) -> None:
+        scrollbar.set(first, last)
+        if float(first) <= 0.0 and float(last) >= 1.0:
+            scrollbar.grid_remove()
+        else:
+            scrollbar.grid()
 
     def _build_chat(self, parent: tk.Misc) -> ttk.Frame:
         frame = ttk.Frame(parent, padding=8)
@@ -3173,10 +3365,11 @@ class App:
             self.tree.move(person["id"], "", index)
 
         banned = self.server.banned()
-        if list(self.ban_list.get(0, "end")) != banned:
+        if self._ban_keys != [key for key, _ in banned]:
+            self._ban_keys = [key for key, _ in banned]
             self.ban_list.delete(0, "end")
-            for ip in banned:
-                self.ban_list.insert("end", ip)
+            for _, label in banned:
+                self.ban_list.insert("end", label)
 
     def _set_running(self, running: bool) -> None:
         self.status_pill.configure(
@@ -3306,21 +3499,31 @@ class App:
             self._info("Ban", "Select someone in the list first.")
             return
 
-        addresses = sorted({self.tree.set(item, "ip") for item in selection})
+        people = [(self.tree.set(item, "name"), self.tree.set(item, "ip")) for item in selection]
+        addresses = {ip for _, ip in people}
+        names = sorted(f"{name} ({ip})" for name, ip in people)
         own_addresses = {"127.0.0.1", get_local_ip()}
         if own_addresses.intersection(addresses) and not self._ask(
             "Ban",
             "One of these is this Pi itself. Ban it anyway?",
         ):
             return
-        if not self._ask("Ban", "Ban these addresses until the app closes?\n\n" + "\n".join(addresses)):
+        if not self._ask(
+            "Ban",
+            "Ban these devices until you unban them? This lasts after restarts.\n\n" + "\n".join(names),
+        ):
             return
-        for address in addresses:
-            self.server.ban_ip(address)
+        self.server.ban(people)
 
     def unban_selected(self) -> None:
-        for index in self.ban_list.curselection():
-            self.server.unban_ip(self.ban_list.get(index))
+        keys = [
+            self._ban_keys[index] for index in self.ban_list.curselection() if index < len(self._ban_keys)
+        ]
+        if not keys:
+            self._info("Unban", "Select a banned device in the list first.")
+            return
+        for key in keys:
+            self.server.unban(key)
 
     def pick_color(self) -> None:
         if self._picking_color:
